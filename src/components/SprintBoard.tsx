@@ -22,10 +22,12 @@ const SprintBoard: React.FC<SprintBoardProps> = ({ sprint }) => {
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
 
   // Filter columns for this sprint's tasks
-  const sprintColumns = columns.map(column => ({
-    ...column,
-    tasks: column.tasks.filter(task => task.sprintId === sprint.id)
-  }));
+  const sprintColumns = columns.filter(column =>
+    column.tasks.some(task => task.sprintId === sprint.id) || 
+    // Also include empty default columns (TO DO, IN PROGRESS, DONE)
+    (column.tasks.length === 0 && 
+     (column.title === "TO DO" || column.title === "IN PROGRESS" || column.title === "DONE"))
+  );
 
   const handleEditTask = (task: Task) => {
     setTaskToEdit(task);
@@ -65,9 +67,26 @@ const SprintBoard: React.FC<SprintBoardProps> = ({ sprint }) => {
     }
   };
 
-  const allTasksCompleted = sprintColumns.every(column => 
-    column.title !== "DONE" || column.tasks.length > 0
-  );
+  // Check if all tasks are in DONE column
+  const allTasksCompleted = () => {
+    const doneColumn = sprintColumns.find(column => column.title === "DONE");
+    if (!doneColumn) return false;
+    
+    // Count total tasks for this sprint
+    const totalTasks = sprintColumns.reduce(
+      (count, column) => count + column.tasks.filter(task => task.sprintId === sprint.id).length,
+      0
+    );
+    
+    // Count tasks in DONE column
+    const doneTasks = doneColumn.tasks.filter(task => task.sprintId === sprint.id).length;
+    
+    // If there are no tasks, sprint can't be completed
+    if (totalTasks === 0) return false;
+    
+    // Check if all tasks are in DONE column
+    return doneTasks === totalTasks;
+  };
 
   return (
     <div className="p-4">
@@ -87,7 +106,7 @@ const SprintBoard: React.FC<SprintBoardProps> = ({ sprint }) => {
             <Button
               variant="outline" 
               onClick={() => completeSprint(sprint.id)}
-              disabled={!allTasksCompleted}
+              disabled={!allTasksCompleted()}
             >
               Complete Sprint
             </Button>
@@ -138,13 +157,15 @@ const SprintBoard: React.FC<SprintBoardProps> = ({ sprint }) => {
               </div>
             </div>
             <div className="space-y-2 min-h-[200px]">
-              {column.tasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onEdit={handleEditTask}
-                />
-              ))}
+              {column.tasks
+                .filter(task => task.sprintId === sprint.id)
+                .map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    onEdit={handleEditTask}
+                  />
+                ))}
             </div>
           </div>
         ))}
