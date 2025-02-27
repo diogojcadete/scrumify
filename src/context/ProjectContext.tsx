@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Project, Sprint, Column, Task, ProjectFormData, SprintFormData, TaskFormData } from "@/types";
+import { Project, Sprint, Column, Task, BacklogItem, ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 
 interface ProjectContextType {
@@ -9,6 +9,7 @@ interface ProjectContextType {
   selectedProject: Project | null;
   sprints: Sprint[];
   columns: Column[];
+  backlogItems: BacklogItem[];
   createProject: (data: ProjectFormData) => void;
   updateProject: (id: string, data: ProjectFormData) => void;
   deleteProject: (id: string) => void;
@@ -22,6 +23,10 @@ interface ProjectContextType {
   updateTask: (id: string, data: TaskFormData) => void;
   deleteTask: (id: string) => void;
   moveTask: (taskId: string, sourceColumnId: string, destinationColumnId: string) => void;
+  createBacklogItem: (data: BacklogItemFormData) => void;
+  updateBacklogItem: (id: string, data: BacklogItemFormData) => void;
+  deleteBacklogItem: (id: string) => void;
+  moveBacklogItemToSprint: (backlogItemId: string, sprintId: string) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -31,16 +36,19 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
+  const [backlogItems, setBacklogItems] = useState<BacklogItem[]>([]);
 
   // Load data from localStorage on mount
   useEffect(() => {
     const storedProjects = localStorage.getItem("projects");
     const storedSprints = localStorage.getItem("sprints");
     const storedColumns = localStorage.getItem("columns");
+    const storedBacklogItems = localStorage.getItem("backlogItems");
 
     if (storedProjects) setProjects(JSON.parse(storedProjects));
     if (storedSprints) setSprints(JSON.parse(storedSprints));
     if (storedColumns) setColumns(JSON.parse(storedColumns));
+    if (storedBacklogItems) setBacklogItems(JSON.parse(storedBacklogItems));
   }, []);
 
   // Save data to localStorage whenever it changes
@@ -55,6 +63,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     localStorage.setItem("columns", JSON.stringify(columns));
   }, [columns]);
+
+  useEffect(() => {
+    localStorage.setItem("backlogItems", JSON.stringify(backlogItems));
+  }, [backlogItems]);
 
   const createProject = (data: ProjectFormData) => {
     const newProject: Project = {
@@ -109,6 +121,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setColumns(columns.filter(column => 
       !column.tasks.some(task => sprintIds.includes(task.sprintId))
     ));
+    
+    // Remove all backlog items associated with this project
+    setBacklogItems(backlogItems.filter(item => item.projectId !== id));
     
     // Update selected project if needed
     if (selectedProject && selectedProject.id === id) {
@@ -373,6 +388,113 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setColumns(updatedColumns);
   };
 
+  // Backlog item functions
+  const createBacklogItem = (data: BacklogItemFormData) => {
+    if (!selectedProject) {
+      toast({
+        title: "Error",
+        description: "No project selected.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const newBacklogItem: BacklogItem = {
+      id: uuidv4(),
+      projectId: selectedProject.id,
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    setBacklogItems([...backlogItems, newBacklogItem]);
+    
+    toast({
+      title: "Backlog item created",
+      description: `${data.title} has been added to the backlog.`,
+    });
+  };
+
+  const updateBacklogItem = (id: string, data: BacklogItemFormData) => {
+    const updatedBacklogItems = backlogItems.map(item => 
+      item.id === id 
+        ? { ...item, ...data, updatedAt: new Date() } 
+        : item
+    );
+    
+    setBacklogItems(updatedBacklogItems);
+    
+    toast({
+      title: "Backlog item updated",
+      description: `${data.title} has been updated successfully.`,
+    });
+  };
+
+  const deleteBacklogItem = (id: string) => {
+    const itemToDelete = backlogItems.find(item => item.id === id);
+    if (!itemToDelete) return;
+    
+    setBacklogItems(backlogItems.filter(item => item.id !== id));
+    
+    toast({
+      title: "Backlog item deleted",
+      description: `${itemToDelete.title} has been deleted from the backlog.`,
+    });
+  };
+
+  const moveBacklogItemToSprint = (backlogItemId: string, sprintId: string) => {
+    // Find the backlog item
+    const backlogItem = backlogItems.find(item => item.id === backlogItemId);
+    if (!backlogItem) return;
+    
+    // Find the TO DO column for the target sprint
+    const todoColumn = columns.find(col => 
+      col.title === "TO DO" && 
+      col.tasks.some(task => task.sprintId === sprintId)
+    );
+    
+    if (!todoColumn) {
+      toast({
+        title: "Error",
+        description: "Could not find the TO DO column for the selected sprint.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Create a task from the backlog item
+    const newTask: Task = {
+      id: uuidv4(),
+      title: backlogItem.title,
+      description: backlogItem.description,
+      priority: backlogItem.priority,
+      assignee: "",
+      storyPoints: backlogItem.storyPoints,
+      columnId: todoColumn.id,
+      sprintId: sprintId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    // Add the task to the TO DO column
+    const updatedColumns = columns.map(col => 
+      col.id === todoColumn.id 
+        ? { ...col, tasks: [...col.tasks, newTask] } 
+        : col
+    );
+    
+    // Remove the backlog item
+    const updatedBacklogItems = backlogItems.filter(item => item.id !== backlogItemId);
+    
+    setColumns(updatedColumns);
+    setBacklogItems(updatedBacklogItems);
+    
+    toast({
+      title: "Item moved to sprint",
+      description: `${backlogItem.title} has been moved to the selected sprint.`,
+    });
+  };
+
   return (
     <ProjectContext.Provider
       value={{
@@ -380,6 +502,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         selectedProject,
         sprints,
         columns,
+        backlogItems,
         createProject,
         updateProject,
         deleteProject,
@@ -392,7 +515,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         createTask,
         updateTask,
         deleteTask,
-        moveTask
+        moveTask,
+        createBacklogItem,
+        updateBacklogItem,
+        deleteBacklogItem,
+        moveBacklogItemToSprint
       }}
     >
       {children}

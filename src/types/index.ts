@@ -39,6 +39,17 @@ export interface Task {
   updatedAt: Date;
 }
 
+export interface BacklogItem {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string;
+  priority: "low" | "medium" | "high";
+  storyPoints: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface ProjectFormData {
   title: string;
   description: string;
@@ -58,5 +69,12 @@ export interface TaskFormData {
   description: string;
   priority: "low" | "medium" | "high";
   assignee: string;
+  storyPoints: number;
+}
+
+export interface BacklogItemFormData {
+  title: string;
+  description: string;
+  priority: "low" | "medium" | "high";
   storyPoints: number;
 }

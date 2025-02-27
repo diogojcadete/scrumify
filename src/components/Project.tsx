@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useProject } from "@/context/ProjectContext";
 import SprintBoard from "./SprintBoard";
 import SprintForm from "./SprintForm";
+import Backlog from "./Backlog";
 import { Project as ProjectType, Sprint } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,7 @@ import {
   LayoutDashboardIcon,
   ListIcon,
   CalendarIcon,
+  ListChecksIcon,
 } from "lucide-react";
 import ProjectForm from "./ProjectForm";
 
@@ -92,7 +94,7 @@ const Project: React.FC<ProjectViewProps> = ({ project }) => {
             <LayoutDashboardIcon className="h-4 w-4 mr-2" /> Sprint Board
           </TabsTrigger>
           <TabsTrigger value="backlog">
-            <ListIcon className="h-4 w-4 mr-2" /> Backlog
+            <ListChecksIcon className="h-4 w-4 mr-2" /> Product Backlog
           </TabsTrigger>
           <TabsTrigger value="timeline">
             <CalendarIcon className="h-4 w-4 mr-2" /> Timeline
@@ -185,12 +187,7 @@ const Project: React.FC<ProjectViewProps> = ({ project }) => {
         </TabsContent>
 
         <TabsContent value="backlog" className="animate-fade-in">
-          <div className="text-center py-12">
-            <h3 className="text-xl font-medium mb-2">Backlog Coming Soon</h3>
-            <p className="text-muted-foreground">
-              This feature will be implemented in a future update.
-            </p>
-          </div>
+          <Backlog projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="timeline" className="animate-fade-in">
