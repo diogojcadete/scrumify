@@ -4,100 +4,97 @@ import { useProject } from "@/context/ProjectContext";
 import Project from "@/components/Project";
 import ProjectForm from "@/components/ProjectForm";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusIcon } from "lucide-react";
-import { UserButton, useUser } from "@clerk/clerk-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { PlusIcon, ExternalLinkIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
-const Index: React.FC = () => {
+const Index = () => {
   const { projects, selectedProject, selectProject } = useProject();
   const [showProjectForm, setShowProjectForm] = useState(false);
-  const { user } = useUser();
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Header */}
-      <header className="border-b bg-background">
-        <div className="container mx-auto flex items-center justify-between py-3">
-          <div className="flex items-center space-x-2">
-            <img src="/logo.svg" alt="Logo" className="w-8 h-8" />
-            <h1 className="text-xl font-bold">Agile Sprint Manager</h1>
-          </div>
-          <div className="flex items-center space-x-3">
-            <ThemeToggle />
-            {user && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium hidden md:inline-block">
-                  {user.firstName || user.emailAddresses[0]?.emailAddress}
-                </span>
-                <UserButton afterSignOutUrl="/sign-in" />
-              </div>
-            )}
+    <div className="min-h-screen bg-background">
+      {selectedProject ? (
+        <div className="container mx-auto px-4">
+          <div className="py-4">
+            <Button
+              variant="ghost"
+              onClick={() => selectProject("")}
+              className="mb-6"
+            >
+              ← Back to Projects
+            </Button>
+            <Project project={selectedProject} />
           </div>
         </div>
-      </header>
-
-      {/* Main content */}
-      <main className="flex-1 container mx-auto py-6">
-        {!selectedProject ? (
-          <div className="animate-fade-in">
-            <div className="flex justify-between items-center mb-8">
-              <div>
-                <h1 className="text-3xl font-bold">Welcome back{user?.firstName ? `, ${user.firstName}` : ""}!</h1>
-                <p className="text-muted-foreground mt-1">
-                  Manage your agile projects and sprints
-                </p>
-              </div>
-              <Button onClick={() => setShowProjectForm(true)}>
-                <PlusIcon className="h-4 w-4 mr-1" /> New Project
-              </Button>
+      ) : (
+        <div className="container mx-auto px-4 py-8 animate-fade-in">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold">Scrumify Hub</h1>
+              <p className="text-muted-foreground mt-2">
+                Manage your agile projects with ease
+              </p>
             </div>
+            <Button onClick={() => setShowProjectForm(true)}>
+              <PlusIcon className="h-4 w-4 mr-1" /> New Project
+            </Button>
+          </div>
 
-            {projects.length === 0 ? (
-              <div className="bg-accent/30 rounded-lg border border-border p-8 text-center">
-                <h2 className="text-xl font-medium mb-2">No Projects Yet</h2>
-                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                  Create your first project to start managing sprints and tasks
-                  using the Agile methodology.
+          {projects.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 bg-accent/30 rounded-lg border border-border animate-fade-in">
+              <div className="text-center max-w-md">
+                <h2 className="text-2xl font-bold mb-2">Welcome to Scrumify Hub</h2>
+                <p className="text-muted-foreground mb-6">
+                  Get started by creating your first project.
                 </p>
                 <Button onClick={() => setShowProjectForm(true)}>
                   <PlusIcon className="h-4 w-4 mr-1" /> Create Project
                 </Button>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {projects.map((project) => (
-                  <Card
-                    key={project.id}
-                    className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => selectProject(project.id)}
-                  >
-                    <CardHeader className="pb-2">
-                      <CardTitle>{project.title}</CardTitle>
-                      <CardDescription>
-                        Created on{" "}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map((project) => (
+                <Card key={project.id} className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between">
+                      <CardTitle className="text-xl">{project.title}</CardTitle>
+                      <Badge variant="outline">
                         {new Date(project.createdAt).toLocaleDateString()}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm line-clamp-2">{project.description}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <Project project={selectedProject} />
-        )}
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t py-4">
-        <div className="container mx-auto text-center text-muted-foreground text-sm">
-          &copy; {new Date().getFullYear()} Agile Sprint Manager. All rights reserved.
+                      </Badge>
+                    </div>
+                    <CardDescription className="line-clamp-2">
+                      {project.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="mb-2">
+                      <span className="text-xs text-muted-foreground">End goal:</span>
+                      <p className="text-sm line-clamp-3">{project.endGoal}</p>
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button
+                      className="w-full"
+                      onClick={() => selectProject(project.id)}
+                    >
+                      Open Project <ExternalLinkIcon className="h-3 w-3 ml-1" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
-      </footer>
+      )}
 
       {showProjectForm && (
         <ProjectForm onClose={() => setShowProjectForm(false)} />
