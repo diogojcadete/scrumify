@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Project, Sprint, Column, Task, BacklogItem, ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData } from "@/types";
 import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@clerk/clerk-react";
 
 interface ProjectContextType {
   projects: Project[];
@@ -37,41 +38,63 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
   const [backlogItems, setBacklogItems] = useState<BacklogItem[]>([]);
+  const { userId } = useAuth();
 
-  // Load data from localStorage on mount
+  // Load data from localStorage on mount and when user changes
   useEffect(() => {
-    const storedProjects = localStorage.getItem("projects");
-    const storedSprints = localStorage.getItem("sprints");
-    const storedColumns = localStorage.getItem("columns");
-    const storedBacklogItems = localStorage.getItem("backlogItems");
+    if (!userId) return;
+    
+    const storageKey = `projects_${userId}`;
+    const sprintsKey = `sprints_${userId}`;
+    const columnsKey = `columns_${userId}`;
+    const backlogKey = `backlog_${userId}`;
+    
+    const storedProjects = localStorage.getItem(storageKey);
+    const storedSprints = localStorage.getItem(sprintsKey);
+    const storedColumns = localStorage.getItem(columnsKey);
+    const storedBacklogItems = localStorage.getItem(backlogKey);
 
     if (storedProjects) setProjects(JSON.parse(storedProjects));
     if (storedSprints) setSprints(JSON.parse(storedSprints));
     if (storedColumns) setColumns(JSON.parse(storedColumns));
     if (storedBacklogItems) setBacklogItems(JSON.parse(storedBacklogItems));
-  }, []);
+  }, [userId]);
 
   // Save data to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem("projects", JSON.stringify(projects));
-  }, [projects]);
+    if (!userId) return;
+    localStorage.setItem(`projects_${userId}`, JSON.stringify(projects));
+  }, [projects, userId]);
 
   useEffect(() => {
-    localStorage.setItem("sprints", JSON.stringify(sprints));
-  }, [sprints]);
+    if (!userId) return;
+    localStorage.setItem(`sprints_${userId}`, JSON.stringify(sprints));
+  }, [sprints, userId]);
 
   useEffect(() => {
-    localStorage.setItem("columns", JSON.stringify(columns));
-  }, [columns]);
+    if (!userId) return;
+    localStorage.setItem(`columns_${userId}`, JSON.stringify(columns));
+  }, [columns, userId]);
 
   useEffect(() => {
-    localStorage.setItem("backlogItems", JSON.stringify(backlogItems));
-  }, [backlogItems]);
+    if (!userId) return;
+    localStorage.setItem(`backlog_${userId}`, JSON.stringify(backlogItems));
+  }, [backlogItems, userId]);
 
   const createProject = (data: ProjectFormData) => {
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create a project.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const newProject: Project = {
       id: uuidv4(),
       ...data,
+      userId,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -495,10 +518,15 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  // Filter projects for current user
+  const userProjects = userId 
+    ? projects.filter(project => project.userId === userId)
+    : [];
+
   return (
     <ProjectContext.Provider
       value={{
-        projects,
+        projects: userProjects,
         selectedProject,
         sprints,
         columns,
