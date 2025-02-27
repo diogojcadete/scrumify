@@ -66,6 +66,28 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     setProjects([...projects, newProject]);
     setSelectedProject(newProject);
+    
+    // Create default columns for the project
+    const defaultColumns: Column[] = [
+      {
+        id: uuidv4(),
+        title: "TO DO",
+        tasks: []
+      },
+      {
+        id: uuidv4(),
+        title: "IN PROGRESS",
+        tasks: []
+      },
+      {
+        id: uuidv4(),
+        title: "DONE",
+        tasks: []
+      }
+    ];
+    
+    setColumns([...columns, ...defaultColumns]);
+    
     toast({
       title: "Project created",
       description: `${data.title} has been created successfully.`,
@@ -148,26 +170,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     setSprints([...sprints, newSprint]);
     
-    // Create default columns for the sprint
-    const defaultColumns: Column[] = [
-      {
-        id: uuidv4(),
-        title: "TO DO",
-        tasks: []
-      },
-      {
-        id: uuidv4(),
-        title: "IN PROGRESS",
-        tasks: []
-      },
-      {
-        id: uuidv4(),
-        title: "DONE",
-        tasks: []
-      }
-    ];
-    
-    setColumns([...columns, ...defaultColumns]);
+    // No longer creating default columns for each sprint
+    // Columns are now created once per project (in createProject)
     
     toast({
       title: "Sprint created",
