@@ -10,7 +10,7 @@ import NotFound from "./pages/NotFound";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import { useState, useEffect } from "react";
-import { getSession } from "./lib/supabase";
+import { getSession, supabase } from "./lib/supabase";
 
 const queryClient = new QueryClient();
 
