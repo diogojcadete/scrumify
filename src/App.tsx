@@ -9,19 +9,43 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
-import { ClerkProvider, SignedIn, SignedOut } from "@clerk/clerk-react";
+import { useState, useEffect } from "react";
+import { getSession } from "./lib/supabase";
 
 const queryClient = new QueryClient();
 
-// Ensure environment variable is defined
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+const App = () => {
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-if (!PUBLISHABLE_KEY) {
-  throw new Error("Missing Clerk Publishable Key");
-}
+  useEffect(() => {
+    async function loadSession() {
+      const { session } = await getSession();
+      setSession(session);
+      setLoading(false);
+    }
 
-const App = () => (
-  <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+    loadSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <ProjectProvider>
@@ -32,25 +56,40 @@ const App = () => (
               <Route
                 path="/"
                 element={
-                  <>
-                    <SignedIn>
-                      <Index />
-                    </SignedIn>
-                    <SignedOut>
-                      <Navigate to="/sign-in" replace />
-                    </SignedOut>
-                  </>
+                  session ? (
+                    <Index />
+                  ) : (
+                    <Navigate to="/sign-in" replace />
+                  )
                 }
               />
-              <Route path="/sign-in" element={<SignIn />} />
-              <Route path="/sign-up" element={<SignUp />} />
+              <Route 
+                path="/sign-in" 
+                element={
+                  session ? (
+                    <Navigate to="/" replace />
+                  ) : (
+                    <SignIn />
+                  )
+                } 
+              />
+              <Route 
+                path="/sign-up" 
+                element={
+                  session ? (
+                    <Navigate to="/" replace />
+                  ) : (
+                    <SignUp />
+                  )
+                } 
+              />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
         </ProjectProvider>
       </TooltipProvider>
     </QueryClientProvider>
-  </ClerkProvider>
-);
+  );
+};
 
 export default App;

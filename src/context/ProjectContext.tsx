@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Project, Sprint, Column, Task, BacklogItem, ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData } from "@/types";
 import { toast } from "@/components/ui/use-toast";
-import { useUser } from "@clerk/clerk-react";
+import { supabase } from "@/lib/supabase";
 
 interface ProjectContextType {
   projects: Project[];
@@ -38,11 +38,39 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
   const [backlogItems, setBacklogItems] = useState<BacklogItem[]>([]);
-  const { user, isSignedIn } = useUser();
+  const [user, setUser] = useState<any>(null);
 
-  // Load data from localStorage on mount and when user changes
+  // Set up auth listener and load user data
   useEffect(() => {
-    if (!isSignedIn || !user) return;
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user);
+    };
+    
+    getUser();
+
+    const authListener = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+      } else {
+        setUser(null);
+        // Clear data when user signs out
+        setProjects([]);
+        setSprints([]);
+        setColumns([]);
+        setBacklogItems([]);
+        setSelectedProject(null);
+      }
+    });
+
+    return () => {
+      authListener.data.subscription.unsubscribe();
+    };
+  }, []);
+
+  // Load data from localStorage when user is authenticated
+  useEffect(() => {
+    if (!user) return;
     
     const userIdPrefix = `user_${user.id}_`;
     const storedProjects = localStorage.getItem(`${userIdPrefix}projects`);
@@ -54,40 +82,40 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (storedSprints) setSprints(JSON.parse(storedSprints));
     if (storedColumns) setColumns(JSON.parse(storedColumns));
     if (storedBacklogItems) setBacklogItems(JSON.parse(storedBacklogItems));
-  }, [isSignedIn, user]);
+  }, [user]);
 
   // Save data to localStorage whenever it changes
   useEffect(() => {
-    if (!isSignedIn || !user) return;
+    if (!user) return;
     
     const userIdPrefix = `user_${user.id}_`;
     localStorage.setItem(`${userIdPrefix}projects`, JSON.stringify(projects));
-  }, [projects, isSignedIn, user]);
+  }, [projects, user]);
 
   useEffect(() => {
-    if (!isSignedIn || !user) return;
+    if (!user) return;
     
     const userIdPrefix = `user_${user.id}_`;
     localStorage.setItem(`${userIdPrefix}sprints`, JSON.stringify(sprints));
-  }, [sprints, isSignedIn, user]);
+  }, [sprints, user]);
 
   useEffect(() => {
-    if (!isSignedIn || !user) return;
+    if (!user) return;
     
     const userIdPrefix = `user_${user.id}_`;
     localStorage.setItem(`${userIdPrefix}columns`, JSON.stringify(columns));
-  }, [columns, isSignedIn, user]);
+  }, [columns, user]);
 
   useEffect(() => {
-    if (!isSignedIn || !user) return;
+    if (!user) return;
     
     const userIdPrefix = `user_${user.id}_`;
     localStorage.setItem(`${userIdPrefix}backlogItems`, JSON.stringify(backlogItems));
-  }, [backlogItems, isSignedIn, user]);
+  }, [backlogItems, user]);
 
   // Create a new project
   const createProject = (data: ProjectFormData) => {
-    if (!isSignedIn) {
+    if (!user) {
       toast({
         title: "Authentication required",
         description: "You need to sign in to create a project",
@@ -146,12 +174,13 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     setSprints(sprints.filter(sprint => sprint.projectId !== id));
     
-    // Remove all columns and tasks associated with those sprints
-    const updatedColumns = columns.filter(column => 
-      !column.tasks.some(task => sprintIds.includes(task.sprintId))
+    // Remove all tasks associated with this project's sprints
+    setColumns(
+      columns.map(column => ({
+        ...column,
+        tasks: column.tasks.filter(task => !sprintIds.includes(task.sprintId))
+      }))
     );
-    
-    setColumns(updatedColumns);
     
     // Remove all backlog items associated with this project
     setBacklogItems(backlogItems.filter(item => item.projectId !== id));
@@ -200,27 +229,48 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updatedAt: new Date()
     };
     
-    // Create default columns for this sprint
-    const todoColumn: Column = {
-      id: uuidv4(),
-      title: "TO DO",
-      tasks: []
-    };
+    // Check if default columns already exist
+    let todoColumnExists = false;
+    let inProgressColumnExists = false;
+    let doneColumnExists = false;
     
-    const inProgressColumn: Column = {
-      id: uuidv4(),
-      title: "IN PROGRESS",
-      tasks: []
-    };
+    columns.forEach(column => {
+      if (column.title === "TO DO") todoColumnExists = true;
+      if (column.title === "IN PROGRESS") inProgressColumnExists = true;
+      if (column.title === "DONE") doneColumnExists = true;
+    });
     
-    const doneColumn: Column = {
-      id: uuidv4(),
-      title: "DONE",
-      tasks: []
-    };
+    const newColumns: Column[] = [];
+    
+    if (!todoColumnExists) {
+      newColumns.push({
+        id: uuidv4(),
+        title: "TO DO",
+        tasks: []
+      });
+    }
+    
+    if (!inProgressColumnExists) {
+      newColumns.push({
+        id: uuidv4(),
+        title: "IN PROGRESS",
+        tasks: []
+      });
+    }
+    
+    if (!doneColumnExists) {
+      newColumns.push({
+        id: uuidv4(),
+        title: "DONE",
+        tasks: []
+      });
+    }
     
     setSprints([...sprints, newSprint]);
-    setColumns([...columns, todoColumn, inProgressColumn, doneColumn]);
+    
+    if (newColumns.length > 0) {
+      setColumns([...columns, ...newColumns]);
+    }
     
     toast({
       title: "Sprint created",
@@ -265,6 +315,18 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Create a new column for a sprint
   const createColumn = (sprintId: string, title: string) => {
+    // First check if this column title already exists
+    const columnExists = columns.some(col => col.title === title);
+    
+    if (columnExists) {
+      toast({
+        title: "Column already exists",
+        description: `A column named "${title}" already exists.`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const newColumn: Column = {
       id: uuidv4(),
       title,
@@ -288,6 +350,16 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       toast({
         title: "Cannot delete column",
         description: "This column still has tasks. Move or delete them first.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Don't allow deleting default columns
+    if (["TO DO", "IN PROGRESS", "DONE"].includes(columnToDelete.title)) {
+      toast({
+        title: "Cannot delete default column",
+        description: "The default columns (TO DO, IN PROGRESS, DONE) cannot be deleted.",
         variant: "destructive"
       });
       return;
@@ -397,7 +469,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const taskIndex = sourceColumn.tasks.findIndex(task => task.id === taskId);
     if (taskIndex === -1) return;
     
-    // Get the task
+    // Get the task and update its columnId
     const task = { ...sourceColumn.tasks[taskIndex], columnId: destinationColumnId };
     
     // Update columns
@@ -486,16 +558,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const backlogItem = backlogItems.find(item => item.id === backlogItemId);
     if (!backlogItem) return;
     
-    // Find the TO DO column for the target sprint
-    let todoColumn = columns.find(col => 
-      col.title === "TO DO"
-    );
-    
-    // If TO DO column doesn't exist, create it
+    // Find the TO DO column
+    const todoColumn = columns.find(col => col.title === "TO DO");
     if (!todoColumn) {
       toast({
         title: "Error",
-        description: "Could not find the TO DO column for the selected sprint.",
+        description: "TO DO column not found. Please create a sprint first.",
         variant: "destructive"
       });
       return;

@@ -1,5 +1,6 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useProject } from "@/context/ProjectContext";
 import Project from "@/components/Project";
 import ProjectForm from "@/components/ProjectForm";
@@ -12,14 +13,38 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PlusIcon, ExternalLinkIcon } from "lucide-react";
+import { PlusIcon, ExternalLinkIcon, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { UserButton, useUser } from "@clerk/clerk-react";
+import { supabase, signOut } from "@/lib/supabase";
+import { toast } from "@/components/ui/use-toast";
 
 const Index = () => {
   const { projects, selectedProject, selectProject } = useProject();
   const [showProjectForm, setShowProjectForm] = useState(false);
-  const { user } = useUser();
+  const [user, setUser] = useState<any>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user);
+    };
+    
+    getUser();
+  }, []);
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast({
+        title: "Error signing out",
+        description: error.message,
+        variant: "destructive"
+      });
+    } else {
+      navigate("/sign-in");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -46,7 +71,12 @@ const Index = () => {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <UserButton afterSignOutUrl="/sign-in" />
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{user?.email}</span>
+                <Button variant="outline" size="sm" onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4 mr-1" /> Sign Out
+                </Button>
+              </div>
               <Button onClick={() => setShowProjectForm(true)}>
                 <PlusIcon className="h-4 w-4 mr-1" /> New Project
               </Button>

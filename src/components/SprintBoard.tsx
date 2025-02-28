@@ -21,12 +21,12 @@ const SprintBoard: React.FC<SprintBoardProps> = ({ sprint }) => {
   const [newColumnName, setNewColumnName] = useState("");
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
 
-  // Get the default columns (TO DO, IN PROGRESS, DONE) for this sprint
+  // Only get the ONE instance of each standard column that we need
   const todoColumn = columns.find(column => column.title === "TO DO");
   const inProgressColumn = columns.find(column => column.title === "IN PROGRESS");
   const doneColumn = columns.find(column => column.title === "DONE");
 
-  // Get custom columns
+  // Get custom columns that have tasks for this sprint
   const customColumns = columns.filter(column => 
     column.title !== "TO DO" && 
     column.title !== "IN PROGRESS" && 
@@ -139,7 +139,7 @@ const SprintBoard: React.FC<SprintBoardProps> = ({ sprint }) => {
         {sprintColumns.map((column) => (
           <div
             key={column.id}
-            className="board-column"
+            className="board-column border rounded-lg p-4 bg-background"
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, column.id)}
           >
@@ -193,7 +193,7 @@ const SprintBoard: React.FC<SprintBoardProps> = ({ sprint }) => {
             </div>
           </div>
         ) : (
-          <div className="board-column">
+          <div className="board-column border rounded-lg p-4 bg-background">
             <div className="flex flex-col gap-2">
               <Input
                 placeholder="Column name"

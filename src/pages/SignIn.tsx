@@ -1,19 +1,61 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { SignIn as ClerkSignIn, useAuth } from "@clerk/clerk-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { signIn, getSession } from "@/lib/supabase";
+import { toast } from "@/components/ui/use-toast";
 
 const SignIn: React.FC = () => {
-  const { isSignedIn } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Redirect to home if already signed in
-  React.useEffect(() => {
-    if (isSignedIn) {
-      navigate("/", { replace: true });
+  // Check if user is already signed in
+  useEffect(() => {
+    const checkSession = async () => {
+      const { session, error } = await getSession();
+      if (session) {
+        navigate("/", { replace: true });
+      }
+    };
+
+    checkSession();
+  }, [navigate]);
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email || !password) {
+      toast({
+        title: "Error",
+        description: "Please enter both email and password",
+        variant: "destructive"
+      });
+      return;
     }
-  }, [isSignedIn, navigate]);
+    
+    setLoading(true);
+    const { data, error } = await signIn(email, password);
+    setLoading(false);
+    
+    if (error) {
+      toast({
+        title: "Sign in failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "Signed in successfully",
+        description: "Welcome back!"
+      });
+      navigate("/");
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -38,22 +80,33 @@ const SignIn: React.FC = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ClerkSignIn
-              path="/sign-in"
-              routing="path"
-              signUpUrl="/sign-up"
-              redirectUrl="/"
-              appearance={{
-                elements: {
-                  rootBox: "mx-auto w-full",
-                  card: "shadow-none border-0 p-0",
-                  header: "hidden",
-                  footer: {
-                    margin: "mt-5 text-center"
-                  },
-                },
-              }}
-            />
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com" 
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input 
+                  id="password" 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </form>
+            
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground">
                 Don't have an account?{" "}
