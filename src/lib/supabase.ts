@@ -36,3 +36,12 @@ export async function getSession() {
   const { data, error } = await supabase.auth.getSession();
   return { session: data.session, error };
 }
+
+export async function sendCollaboratorInvitation(email: string, projectTitle: string, inviterEmail: string) {
+  // In a real application, this would send an actual email via a backend function
+  console.log(`Sending invitation to ${email} for project "${projectTitle}" from ${inviterEmail}`);
+  
+  // This is a mock function for demonstration - in production, you'd use a real email service
+  // or a Supabase Edge Function
+  return { success: true };
+}

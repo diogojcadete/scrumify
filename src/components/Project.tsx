@@ -1,226 +1,170 @@
 
 import React, { useState } from "react";
 import { useProject } from "@/context/ProjectContext";
-import SprintBoard from "./SprintBoard";
-import SprintForm from "./SprintForm";
-import Backlog from "./Backlog";
-import { Project as ProjectType, Sprint } from "@/types";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
-  PencilIcon,
-  PlusIcon,
-  TrashIcon,
-  LayoutDashboardIcon,
-  ListIcon,
-  CalendarIcon,
-  ListChecksIcon,
-} from "lucide-react";
+import { Edit2, Trash } from "lucide-react";
+import { Project as ProjectType } from "@/types";
+import SprintForm from "./SprintForm";
 import ProjectForm from "./ProjectForm";
+import SprintBoard from "./SprintBoard";
+import Backlog from "./Backlog";
+import CollaboratorsList from "./CollaboratorsList";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-interface ProjectViewProps {
+interface ProjectProps {
   project: ProjectType;
 }
 
-const Project: React.FC<ProjectViewProps> = ({ project }) => {
-  const { sprints, deleteProject } = useProject();
+const Project: React.FC<ProjectProps> = ({ project }) => {
+  const { sprints, deleteProject, user } = useProject();
   const [showSprintForm, setShowSprintForm] = useState(false);
-  const [showEditProject, setShowEditProject] = useState(false);
-  const [activeSprintId, setActiveSprintId] = useState<string | null>(null);
-  const [sprintToEdit, setSprintToEdit] = useState<Sprint | null>(null);
+  const [showProjectForm, setShowProjectForm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedSprintId, setSelectedSprintId] = useState<string | null>(null);
 
-  const projectSprints = sprints.filter(
-    (sprint) => sprint.projectId === project.id
-  );
+  // Filter sprints for this project
+  const projectSprints = sprints.filter(sprint => sprint.projectId === project.id);
 
+  // Check if the user is the project owner
+  const isOwner = user?.id === project.ownerId;
+  
   const handleDeleteProject = () => {
-    if (window.confirm("Are you sure you want to delete this project?")) {
-      deleteProject(project.id);
-    }
-  };
-
-  const handleEditSprint = (sprint: Sprint) => {
-    setSprintToEdit(sprint);
-    setShowSprintForm(true);
+    deleteProject(project.id);
+    setShowDeleteConfirm(false);
   };
 
   return (
-    <div className="container mx-auto py-8 animate-fade-in">
-      <div className="flex justify-between items-start mb-8">
+    <div className="space-y-6">
+      <div className="flex justify-between items-start">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold">{project.title}</h1>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowEditProject(true)}
-            >
-              <PencilIcon className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-destructive"
-              onClick={handleDeleteProject}
-            >
-              <TrashIcon className="h-4 w-4" />
-            </Button>
+          <h1 className="text-3xl font-bold">{project.title}</h1>
+          <p className="text-muted-foreground mt-1">{project.description}</p>
+          <div className="mt-2">
+            <span className="text-sm font-medium">End Goal:</span>
+            <p className="text-sm mt-1">{project.endGoal}</p>
           </div>
-          <p className="text-muted-foreground mt-2 max-w-2xl">
-            {project.description}
-          </p>
         </div>
-        <Button onClick={() => setShowSprintForm(true)}>
-          <PlusIcon className="h-4 w-4 mr-1" /> New Sprint
-        </Button>
+        <div className="flex space-x-2">
+          {isOwner && (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowProjectForm(true)}
+              >
+                <Edit2 className="h-3.5 w-3.5 mr-1" />
+                Edit
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash className="h-3.5 w-3.5 mr-1" />
+                Delete
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
-      <Tabs defaultValue="board">
-        <TabsList className="mb-8">
-          <TabsTrigger value="board">
-            <LayoutDashboardIcon className="h-4 w-4 mr-2" /> Sprint Board
-          </TabsTrigger>
-          <TabsTrigger value="backlog">
-            <ListChecksIcon className="h-4 w-4 mr-2" /> Product Backlog
-          </TabsTrigger>
-          <TabsTrigger value="timeline">
-            <CalendarIcon className="h-4 w-4 mr-2" /> Timeline
-          </TabsTrigger>
+      <Tabs defaultValue="sprints">
+        <TabsList className="mb-4">
+          <TabsTrigger value="sprints">Sprints</TabsTrigger>
+          <TabsTrigger value="backlog">Backlog</TabsTrigger>
+          <TabsTrigger value="collaborators">Collaborators</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="board" className="animate-fade-in">
-          {projectSprints.length === 0 ? (
-            <div className="text-center py-12">
-              <h3 className="text-xl font-medium mb-2">No Sprints Yet</h3>
-              <p className="text-muted-foreground mb-6">
-                Create your first sprint to start managing tasks.
-              </p>
+        
+        <TabsContent value="sprints">
+          <div className="space-y-8">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Sprints</h2>
               <Button onClick={() => setShowSprintForm(true)}>
-                <PlusIcon className="h-4 w-4 mr-1" /> Create Sprint
+                Create Sprint
               </Button>
             </div>
-          ) : (
-            <div className="space-y-8">
-              {activeSprintId ? (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => setActiveSprintId(null)}
-                    className="mb-4"
-                  >
-                    Back to Sprints
-                  </Button>
-                  <SprintBoard
-                    sprint={
-                      projectSprints.find(
-                        (sprint) => sprint.id === activeSprintId
-                      )!
-                    }
-                  />
-                </>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            {projectSprints.length === 0 ? (
+              <div className="p-8 text-center bg-accent/30 rounded-lg border border-border">
+                <h3 className="text-lg font-medium mb-2">No sprints yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Start by creating your first sprint
+                </p>
+                <Button onClick={() => setShowSprintForm(true)}>
+                  Create Sprint
+                </Button>
+              </div>
+            ) : (
+              <Tabs 
+                defaultValue={projectSprints[0].id}
+                onValueChange={(value) => setSelectedSprintId(value)}
+              >
+                <TabsList className="mb-4">
                   {projectSprints.map((sprint) => (
-                    <Card
-                      key={sprint.id}
-                      className={`hover:shadow-md transition-shadow ${
-                        sprint.isCompleted
-                          ? "bg-secondary/30"
-                          : "bg-background"
-                      }`}
-                    >
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between">
-                          <CardTitle className="text-xl">
-                            {sprint.title}
-                          </CardTitle>
-                          {sprint.isCompleted && (
-                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-                              Completed
-                            </span>
-                          )}
-                        </div>
-                        <CardDescription>
-                          {new Date(sprint.startDate).toLocaleDateString()} -{" "}
-                          {new Date(sprint.endDate).toLocaleDateString()}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm line-clamp-2">
-                          {sprint.description}
-                        </p>
-                      </CardContent>
-                      <CardFooter className="flex justify-between pt-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditSprint(sprint)}
-                        >
-                          <PencilIcon className="h-3 w-3 mr-1" /> Edit
-                        </Button>
-                        <Button
-                          onClick={() => setActiveSprintId(sprint.id)}
-                          size="sm"
-                        >
-                          View Board
-                        </Button>
-                      </CardFooter>
-                    </Card>
+                    <TabsTrigger key={sprint.id} value={sprint.id}>
+                      {sprint.title}
+                      {sprint.isCompleted && " ✓"}
+                    </TabsTrigger>
                   ))}
-                </div>
-              )}
-            </div>
-          )}
+                </TabsList>
+                
+                {projectSprints.map((sprint) => (
+                  <TabsContent key={sprint.id} value={sprint.id}>
+                    <SprintBoard sprint={sprint} />
+                  </TabsContent>
+                ))}
+              </Tabs>
+            )}
+          </div>
         </TabsContent>
-
-        <TabsContent value="backlog" className="animate-fade-in">
+        
+        <TabsContent value="backlog">
           <Backlog projectId={project.id} />
         </TabsContent>
-
-        <TabsContent value="timeline" className="animate-fade-in">
-          <div className="text-center py-12">
-            <h3 className="text-xl font-medium mb-2">Timeline Coming Soon</h3>
-            <p className="text-muted-foreground">
-              This feature will be implemented in a future update.
-            </p>
-          </div>
+        
+        <TabsContent value="collaborators">
+          <CollaboratorsList projectId={project.id} />
         </TabsContent>
       </Tabs>
 
       {showSprintForm && (
-        <SprintForm
-          onClose={() => {
-            setShowSprintForm(false);
-            setSprintToEdit(null);
-          }}
-          sprintToEdit={sprintToEdit || undefined}
+        <SprintForm onClose={() => setShowSprintForm(false)} />
+      )}
+      
+      {showProjectForm && (
+        <ProjectForm 
+          onClose={() => setShowProjectForm(false)} 
+          projectToEdit={project}
         />
       )}
-
-      {showEditProject && (
-        <ProjectForm
-          onClose={() => setShowEditProject(false)}
-          projectToEdit={{
-            id: project.id,
-            title: project.title,
-            description: project.description,
-            endGoal: project.endGoal,
-          }}
-        />
-      )}
+      
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. All sprints, tasks, and backlog items
+              will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteProject}>
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

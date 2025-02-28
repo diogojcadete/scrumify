@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Project, Sprint, Column, Task, BacklogItem, ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData } from "@/types";
+import { Project, Sprint, Column, Task, BacklogItem, ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData, Collaborator, CollaboratorFormData } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase";
 
@@ -11,6 +11,7 @@ interface ProjectContextType {
   sprints: Sprint[];
   columns: Column[];
   backlogItems: BacklogItem[];
+  collaborators: Collaborator[];
   createProject: (data: ProjectFormData) => void;
   updateProject: (id: string, data: ProjectFormData) => void;
   deleteProject: (id: string) => void;
@@ -28,6 +29,9 @@ interface ProjectContextType {
   updateBacklogItem: (id: string, data: BacklogItemFormData) => void;
   deleteBacklogItem: (id: string) => void;
   moveBacklogItemToSprint: (backlogItemId: string, sprintId: string) => void;
+  inviteCollaborator: (projectId: string, data: CollaboratorFormData) => void;
+  removeCollaborator: (id: string) => void;
+  getProjectCollaborators: (projectId: string) => Collaborator[];
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -38,6 +42,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
   const [backlogItems, setBacklogItems] = useState<BacklogItem[]>([]);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [user, setUser] = useState<any>(null);
 
   // Set up auth listener and load user data
@@ -59,6 +64,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setSprints([]);
         setColumns([]);
         setBacklogItems([]);
+        setCollaborators([]);
         setSelectedProject(null);
       }
     });
@@ -77,11 +83,13 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const storedSprints = localStorage.getItem(`${userIdPrefix}sprints`);
     const storedColumns = localStorage.getItem(`${userIdPrefix}columns`);
     const storedBacklogItems = localStorage.getItem(`${userIdPrefix}backlogItems`);
+    const storedCollaborators = localStorage.getItem(`${userIdPrefix}collaborators`);
 
     if (storedProjects) setProjects(JSON.parse(storedProjects));
     if (storedSprints) setSprints(JSON.parse(storedSprints));
     if (storedColumns) setColumns(JSON.parse(storedColumns));
     if (storedBacklogItems) setBacklogItems(JSON.parse(storedBacklogItems));
+    if (storedCollaborators) setCollaborators(JSON.parse(storedCollaborators));
   }, [user]);
 
   // Save data to localStorage whenever it changes
@@ -113,6 +121,13 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem(`${userIdPrefix}backlogItems`, JSON.stringify(backlogItems));
   }, [backlogItems, user]);
 
+  useEffect(() => {
+    if (!user) return;
+    
+    const userIdPrefix = `user_${user.id}_`;
+    localStorage.setItem(`${userIdPrefix}collaborators`, JSON.stringify(collaborators));
+  }, [collaborators, user]);
+
   // Create a new project
   const createProject = (data: ProjectFormData) => {
     if (!user) {
@@ -127,6 +142,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const newProject: Project = {
       id: uuidv4(),
       ...data,
+      ownerId: user.id,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -184,6 +200,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     // Remove all backlog items associated with this project
     setBacklogItems(backlogItems.filter(item => item.projectId !== id));
+    
+    // Remove all collaborators associated with this project
+    setCollaborators(collaborators.filter(collab => collab.projectId !== id));
     
     // Update selected project if needed
     if (selectedProject && selectedProject.id === id) {
@@ -602,6 +621,117 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  // Invite a collaborator to a project
+  const inviteCollaborator = async (projectId: string, data: CollaboratorFormData) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You need to sign in to invite collaborators",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check if project exists
+    const project = projects.find(p => p.id === projectId);
+    if (!project) {
+      toast({
+        title: "Error",
+        description: "Project not found.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check if user is the project owner
+    if (project.ownerId !== user.id) {
+      toast({
+        title: "Permission denied",
+        description: "Only the project owner can invite collaborators.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Check if the email is already a collaborator for this project
+    const existingCollaborator = collaborators.find(
+      collab => collab.projectId === projectId && collab.email === data.email
+    );
+    
+    if (existingCollaborator) {
+      toast({
+        title: "Already invited",
+        description: `${data.email} has already been invited to this project.`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Create a new collaborator
+    const newCollaborator: Collaborator = {
+      id: uuidv4(),
+      projectId,
+      email: data.email,
+      role: data.role,
+      status: "pending",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    setCollaborators([...collaborators, newCollaborator]);
+    
+    // In a real app, here we would:
+    // 1. Store the invitation in the database
+    // 2. Send an email invitation to the collaborator
+    
+    toast({
+      title: "Invitation sent",
+      description: `Invitation has been sent to ${data.email}.`,
+    });
+  };
+
+  // Remove a collaborator from a project
+  const removeCollaborator = (id: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You need to sign in to remove collaborators",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const collaboratorToRemove = collaborators.find(collab => collab.id === id);
+    if (!collaboratorToRemove) return;
+    
+    // Find the project
+    const project = projects.find(p => p.id === collaboratorToRemove.projectId);
+    if (!project) return;
+    
+    // Check if user is the project owner
+    if (project.ownerId !== user.id) {
+      toast({
+        title: "Permission denied",
+        description: "Only the project owner can remove collaborators.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Remove the collaborator
+    setCollaborators(collaborators.filter(collab => collab.id !== id));
+    
+    toast({
+      title: "Collaborator removed",
+      description: `${collaboratorToRemove.email} has been removed from the project.`,
+    });
+  };
+
+  // Get all collaborators for a specific project
+  const getProjectCollaborators = (projectId: string) => {
+    return collaborators.filter(collab => collab.projectId === projectId);
+  };
+
   return (
     <ProjectContext.Provider
       value={{
@@ -610,6 +740,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         sprints,
         columns,
         backlogItems,
+        collaborators,
         createProject,
         updateProject,
         deleteProject,
@@ -626,7 +757,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         createBacklogItem,
         updateBacklogItem,
         deleteBacklogItem,
-        moveBacklogItemToSprint
+        moveBacklogItemToSprint,
+        inviteCollaborator,
+        removeCollaborator,
+        getProjectCollaborators
       }}
     >
       {children}
