@@ -4,6 +4,7 @@ import { useProject } from "@/context/ProjectContext";
 import SprintBoard from "./SprintBoard";
 import SprintForm from "./SprintForm";
 import Backlog from "./Backlog";
+import CollaboratorList from "./CollaboratorList";
 import { Project as ProjectType, Sprint } from "@/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,23 +29,29 @@ import {
   ListIcon,
   CalendarIcon,
   ListChecksIcon,
+  UsersIcon,
 } from "lucide-react";
 import ProjectForm from "./ProjectForm";
+import { useUser } from "@clerk/clerk-react";
 
 interface ProjectViewProps {
   project: ProjectType;
 }
 
 const Project: React.FC<ProjectViewProps> = ({ project }) => {
-  const { sprints, deleteProject } = useProject();
+  const { sprints, deleteProject, userCanEditProject } = useProject();
   const [showSprintForm, setShowSprintForm] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
   const [activeSprintId, setActiveSprintId] = useState<string | null>(null);
   const [sprintToEdit, setSprintToEdit] = useState<Sprint | null>(null);
+  const { user } = useUser();
 
   const projectSprints = sprints.filter(
     (sprint) => sprint.projectId === project.id
   );
+
+  const isOwner = user?.id === project.ownerId;
+  const canEdit = userCanEditProject(project.id);
 
   const handleDeleteProject = () => {
     if (window.confirm("Are you sure you want to delete this project?")) {
@@ -53,6 +60,7 @@ const Project: React.FC<ProjectViewProps> = ({ project }) => {
   };
 
   const handleEditSprint = (sprint: Sprint) => {
+    if (!canEdit) return;
     setSprintToEdit(sprint);
     setShowSprintForm(true);
   };
@@ -63,29 +71,35 @@ const Project: React.FC<ProjectViewProps> = ({ project }) => {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold">{project.title}</h1>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowEditProject(true)}
-            >
-              <PencilIcon className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-destructive"
-              onClick={handleDeleteProject}
-            >
-              <TrashIcon className="h-4 w-4" />
-            </Button>
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowEditProject(true)}
+              >
+                <PencilIcon className="h-4 w-4" />
+              </Button>
+            )}
+            {isOwner && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-destructive"
+                onClick={handleDeleteProject}
+              >
+                <TrashIcon className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           <p className="text-muted-foreground mt-2 max-w-2xl">
             {project.description}
           </p>
         </div>
-        <Button onClick={() => setShowSprintForm(true)}>
-          <PlusIcon className="h-4 w-4 mr-1" /> New Sprint
-        </Button>
+        {canEdit && (
+          <Button onClick={() => setShowSprintForm(true)}>
+            <PlusIcon className="h-4 w-4 mr-1" /> New Sprint
+          </Button>
+        )}
       </div>
 
       <Tabs defaultValue="board">
@@ -95,6 +109,9 @@ const Project: React.FC<ProjectViewProps> = ({ project }) => {
           </TabsTrigger>
           <TabsTrigger value="backlog">
             <ListChecksIcon className="h-4 w-4 mr-2" /> Product Backlog
+          </TabsTrigger>
+          <TabsTrigger value="team">
+            <UsersIcon className="h-4 w-4 mr-2" /> Team
           </TabsTrigger>
           <TabsTrigger value="timeline">
             <CalendarIcon className="h-4 w-4 mr-2" /> Timeline
@@ -108,9 +125,11 @@ const Project: React.FC<ProjectViewProps> = ({ project }) => {
               <p className="text-muted-foreground mb-6">
                 Create your first sprint to start managing tasks.
               </p>
-              <Button onClick={() => setShowSprintForm(true)}>
-                <PlusIcon className="h-4 w-4 mr-1" /> Create Sprint
-              </Button>
+              {canEdit && (
+                <Button onClick={() => setShowSprintForm(true)}>
+                  <PlusIcon className="h-4 w-4 mr-1" /> Create Sprint
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-8">
@@ -164,13 +183,15 @@ const Project: React.FC<ProjectViewProps> = ({ project }) => {
                         </p>
                       </CardContent>
                       <CardFooter className="flex justify-between pt-0">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditSprint(sprint)}
-                        >
-                          <PencilIcon className="h-3 w-3 mr-1" /> Edit
-                        </Button>
+                        {canEdit && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditSprint(sprint)}
+                          >
+                            <PencilIcon className="h-3 w-3 mr-1" /> Edit
+                          </Button>
+                        )}
                         <Button
                           onClick={() => setActiveSprintId(sprint.id)}
                           size="sm"
@@ -188,6 +209,10 @@ const Project: React.FC<ProjectViewProps> = ({ project }) => {
 
         <TabsContent value="backlog" className="animate-fade-in">
           <Backlog projectId={project.id} />
+        </TabsContent>
+
+        <TabsContent value="team" className="animate-fade-in">
+          <CollaboratorList projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="timeline" className="animate-fade-in">

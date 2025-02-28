@@ -6,6 +6,15 @@ export interface Project {
   endGoal: string;
   createdAt: Date;
   updatedAt: Date;
+  ownerId: string; // User ID of the project owner
+  collaborators: Collaborator[]; // List of collaborators
+}
+
+export interface Collaborator {
+  userId: string;
+  email: string;
+  role: "viewer" | "editor" | "admin";
+  addedAt: Date;
 }
 
 export interface Sprint {
@@ -77,4 +86,9 @@ export interface BacklogItemFormData {
   description: string;
   priority: "low" | "medium" | "high";
   storyPoints: number;
+}
+
+export interface CollaboratorFormData {
+  email: string;
+  role: "viewer" | "editor" | "admin";
 }
