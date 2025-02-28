@@ -14,10 +14,12 @@ import {
 } from "@/components/ui/card";
 import { PlusIcon, ExternalLinkIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { UserButton, useUser } from "@clerk/clerk-react";
 
 const Index = () => {
   const { projects, selectedProject, selectProject } = useProject();
   const [showProjectForm, setShowProjectForm] = useState(false);
+  const { user } = useUser();
 
   return (
     <div className="min-h-screen bg-background">
@@ -43,9 +45,12 @@ const Index = () => {
                 Manage your agile projects with ease
               </p>
             </div>
-            <Button onClick={() => setShowProjectForm(true)}>
-              <PlusIcon className="h-4 w-4 mr-1" /> New Project
-            </Button>
+            <div className="flex items-center gap-4">
+              <UserButton afterSignOutUrl="/sign-in" />
+              <Button onClick={() => setShowProjectForm(true)}>
+                <PlusIcon className="h-4 w-4 mr-1" /> New Project
+              </Button>
+            </div>
           </div>
 
           {projects.length === 0 ? (

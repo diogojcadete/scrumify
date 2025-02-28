@@ -21,22 +21,26 @@ const SprintBoard: React.FC<SprintBoardProps> = ({ sprint }) => {
   const [newColumnName, setNewColumnName] = useState("");
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
 
-  let sprintColumns = columns.filter(column =>
-    column.tasks.some(task => task.sprintId === sprint.id) ||
-    (column.tasks.length === 0 && ["TO DO", "IN PROGRESS", "DONE"].includes(column.title))
+  // Get the default columns (TO DO, IN PROGRESS, DONE) for this sprint
+  const todoColumn = columns.find(column => column.title === "TO DO");
+  const inProgressColumn = columns.find(column => column.title === "IN PROGRESS");
+  const doneColumn = columns.find(column => column.title === "DONE");
+
+  // Get custom columns
+  const customColumns = columns.filter(column => 
+    column.title !== "TO DO" && 
+    column.title !== "IN PROGRESS" && 
+    column.title !== "DONE" &&
+    column.tasks.some(task => task.sprintId === sprint.id)
   );
 
-  // Ensure "TO DO" column exists even if there are no tasks
-  if (!sprintColumns.some(column => column.title === "TO DO")) {
-    sprintColumns.unshift({
-      id: "todo-placeholder",
-      title: "TO DO",
-      tasks: []
-    } as Column);
-  }
-  
-  
-  
+  // Combine all columns used by this sprint
+  const sprintColumns = [
+    todoColumn,
+    inProgressColumn,
+    doneColumn,
+    ...customColumns
+  ].filter(Boolean) as Column[];
 
   const handleEditTask = (task: Task) => {
     setTaskToEdit(task);
@@ -78,7 +82,6 @@ const SprintBoard: React.FC<SprintBoardProps> = ({ sprint }) => {
 
   // Check if all tasks are in DONE column
   const allTasksCompleted = () => {
-    const doneColumn = sprintColumns.find(column => column.title === "DONE");
     if (!doneColumn) return false;
     
     // Count total tasks for this sprint
