@@ -1,8 +1,8 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Project, Sprint, Column, Task, BacklogItem, Collaborator, ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData, CollaboratorFormData } from "@/types";
+import { Project, Sprint, Column, Task, BacklogItem, ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData } from "@/types";
 import { toast } from "@/components/ui/use-toast";
-import { useUser } from "@clerk/clerk-react";
 
 interface ProjectContextType {
   projects: Project[];
@@ -27,10 +27,6 @@ interface ProjectContextType {
   updateBacklogItem: (id: string, data: BacklogItemFormData) => void;
   deleteBacklogItem: (id: string) => void;
   moveBacklogItemToSprint: (backlogItemId: string, sprintId: string) => void;
-  addCollaborator: (projectId: string, data: CollaboratorFormData) => void;
-  updateCollaboratorRole: (projectId: string, userId: string, newRole: "viewer" | "editor" | "admin") => void;
-  removeCollaborator: (projectId: string, userId: string) => void;
-  userCanEditProject: (projectId: string) => boolean;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -41,69 +37,41 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [columns, setColumns] = useState<Column[]>([]);
   const [backlogItems, setBacklogItems] = useState<BacklogItem[]>([]);
-  const { user, isSignedIn } = useUser();
 
+  // Load data from localStorage on mount
   useEffect(() => {
-    if (!isSignedIn || !user) return;
-    
-    const storedProjects = localStorage.getItem(`projects_${user.id}`);
-    const storedSprints = localStorage.getItem(`sprints_${user.id}`);
-    const storedColumns = localStorage.getItem(`columns_${user.id}`);
-    const storedBacklogItems = localStorage.getItem(`backlog_${user.id}`);
+    const storedProjects = localStorage.getItem("projects");
+    const storedSprints = localStorage.getItem("sprints");
+    const storedColumns = localStorage.getItem("columns");
+    const storedBacklogItems = localStorage.getItem("backlogItems");
 
     if (storedProjects) setProjects(JSON.parse(storedProjects));
     if (storedSprints) setSprints(JSON.parse(storedSprints));
     if (storedColumns) setColumns(JSON.parse(storedColumns));
     if (storedBacklogItems) setBacklogItems(JSON.parse(storedBacklogItems));
-  }, [isSignedIn, user]);
+  }, []);
+
+  // Save data to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("projects", JSON.stringify(projects));
+  }, [projects]);
 
   useEffect(() => {
-    if (!isSignedIn || !user) return;
-    localStorage.setItem(`projects_${user.id}`, JSON.stringify(projects));
-  }, [projects, isSignedIn, user]);
+    localStorage.setItem("sprints", JSON.stringify(sprints));
+  }, [sprints]);
 
   useEffect(() => {
-    if (!isSignedIn || !user) return;
-    localStorage.setItem(`sprints_${user.id}`, JSON.stringify(sprints));
-  }, [sprints, isSignedIn, user]);
+    localStorage.setItem("columns", JSON.stringify(columns));
+  }, [columns]);
 
   useEffect(() => {
-    if (!isSignedIn || !user) return;
-    localStorage.setItem(`columns_${user.id}`, JSON.stringify(columns));
-  }, [columns, isSignedIn, user]);
-
-  useEffect(() => {
-    if (!isSignedIn || !user) return;
-    localStorage.setItem(`backlog_${user.id}`, JSON.stringify(backlogItems));
-  }, [backlogItems, isSignedIn, user]);
-
-  const userCanEditProject = (projectId: string) => {
-    if (!isSignedIn || !user) return false;
-    
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return false;
-    
-    if (project.ownerId === user.id) return true;
-    
-    const collaborator = project.collaborators.find(c => c.userId === user.id);
-    return collaborator && (collaborator.role === "editor" || collaborator.role === "admin");
-  };
+    localStorage.setItem("backlogItems", JSON.stringify(backlogItems));
+  }, [backlogItems]);
 
   const createProject = (data: ProjectFormData) => {
-    if (!isSignedIn || !user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to create a project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     const newProject: Project = {
       id: uuidv4(),
       ...data,
-      ownerId: user.id,
-      collaborators: [],
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -118,15 +86,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateProject = (id: string, data: ProjectFormData) => {
-    if (!userCanEditProject(id)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to edit this project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     const updatedProjects = projects.map(project => 
       project.id === id 
         ? { ...project, ...data, updatedAt: new Date() } 
@@ -149,28 +108,24 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const projectToDelete = projects.find(project => project.id === id);
     if (!projectToDelete) return;
     
-    if (isSignedIn && user && projectToDelete.ownerId !== user.id) {
-      toast({
-        title: "Permission denied",
-        description: "Only the project owner can delete a project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
+    // Remove the project
     setProjects(projects.filter(project => project.id !== id));
     
+    // Remove all sprints associated with this project
     const projectSprints = sprints.filter(sprint => sprint.projectId === id);
     const sprintIds = projectSprints.map(sprint => sprint.id);
     
     setSprints(sprints.filter(sprint => sprint.projectId !== id));
     
+    // Remove all columns and tasks associated with those sprints
     setColumns(columns.filter(column => 
       !column.tasks.some(task => sprintIds.includes(task.sprintId))
     ));
     
+    // Remove all backlog items associated with this project
     setBacklogItems(backlogItems.filter(item => item.projectId !== id));
     
+    // Update selected project if needed
     if (selectedProject && selectedProject.id === id) {
       setSelectedProject(null);
     }
@@ -184,182 +139,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const selectProject = (id: string) => {
     const project = projects.find(p => p.id === id);
     if (project) {
-      const hasAccess = 
-        project.ownerId === user?.id || 
-        project.collaborators.some(c => c.userId === user?.id);
-      
-      if (!hasAccess) {
-        toast({
-          title: "Access denied",
-          description: "You don't have access to this project.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
       setSelectedProject(project);
     }
-  };
-
-  const addCollaborator = (projectId: string, data: CollaboratorFormData) => {
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-    
-    if (isSignedIn && user && project.ownerId !== user.id) {
-      const userCollaborator = project.collaborators.find(c => c.userId === user.id);
-      if (!userCollaborator || userCollaborator.role !== "admin") {
-        toast({
-          title: "Permission denied",
-          description: "Only project owners and admins can add collaborators.",
-          variant: "destructive"
-        });
-        return;
-      }
-    }
-    
-    if (project.collaborators.some(c => c.email === data.email)) {
-      toast({
-        title: "Collaborator exists",
-        description: "This user is already a collaborator on this project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    const newCollaborator: Collaborator = {
-      userId: `user_${Math.random().toString(36).substr(2, 9)}`,
-      email: data.email,
-      role: data.role,
-      addedAt: new Date()
-    };
-    
-    const updatedProjects = projects.map(p => 
-      p.id === projectId
-        ? { 
-            ...p, 
-            collaborators: [...p.collaborators, newCollaborator],
-            updatedAt: new Date()
-          }
-        : p
-    );
-    
-    setProjects(updatedProjects);
-    
-    if (selectedProject && selectedProject.id === projectId) {
-      setSelectedProject({
-        ...selectedProject,
-        collaborators: [...selectedProject.collaborators, newCollaborator],
-        updatedAt: new Date()
-      });
-    }
-    
-    toast({
-      title: "Collaborator added",
-      description: `${data.email} has been added as a ${data.role}.`,
-    });
-    
-    // In a real app, we would send an email invitation here
-  };
-
-  const updateCollaboratorRole = (projectId: string, userId: string, newRole: "viewer" | "editor" | "admin") => {
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-    
-    if (isSignedIn && user && project.ownerId !== user.id) {
-      const userCollaborator = project.collaborators.find(c => c.userId === user.id);
-      if (!userCollaborator || userCollaborator.role !== "admin") {
-        toast({
-          title: "Permission denied",
-          description: "Only project owners and admins can update collaborator roles.",
-          variant: "destructive"
-        });
-        return;
-      }
-    }
-    
-    const updatedProjects = projects.map(p => {
-      if (p.id !== projectId) return p;
-      
-      const updatedCollaborators = p.collaborators.map(c =>
-        c.userId === userId
-          ? { ...c, role: newRole }
-          : c
-      );
-      
-      return {
-        ...p,
-        collaborators: updatedCollaborators,
-        updatedAt: new Date()
-      };
-    });
-    
-    setProjects(updatedProjects);
-    
-    if (selectedProject && selectedProject.id === projectId) {
-      const updatedCollaborators = selectedProject.collaborators.map(c =>
-        c.userId === userId
-          ? { ...c, role: newRole }
-          : c
-      );
-      
-      setSelectedProject({
-        ...selectedProject,
-        collaborators: updatedCollaborators,
-        updatedAt: new Date()
-      });
-    }
-    
-    const collaborator = project.collaborators.find(c => c.userId === userId);
-    
-    toast({
-      title: "Role updated",
-      description: `${collaborator?.email} is now a ${newRole}.`,
-    });
-  };
-
-  const removeCollaborator = (projectId: string, userId: string) => {
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-    
-    if (isSignedIn && user && project.ownerId !== user.id) {
-      const userCollaborator = project.collaborators.find(c => c.userId === user.id);
-      if (!userCollaborator || userCollaborator.role !== "admin") {
-        toast({
-          title: "Permission denied",
-          description: "Only project owners and admins can remove collaborators.",
-          variant: "destructive"
-        });
-        return;
-      }
-    }
-    
-    const collaboratorToRemove = project.collaborators.find(c => c.userId === userId);
-    if (!collaboratorToRemove) return;
-    
-    const updatedProjects = projects.map(p => {
-      if (p.id !== projectId) return p;
-      
-      return {
-        ...p,
-        collaborators: p.collaborators.filter(c => c.userId !== userId),
-        updatedAt: new Date()
-      };
-    });
-    
-    setProjects(updatedProjects);
-    
-    if (selectedProject && selectedProject.id === projectId) {
-      setSelectedProject({
-        ...selectedProject,
-        collaborators: selectedProject.collaborators.filter(c => c.userId !== userId),
-        updatedAt: new Date()
-      });
-    }
-    
-    toast({
-      title: "Collaborator removed",
-      description: `${collaboratorToRemove.email} has been removed from the project.`,
-    });
   };
 
   const createSprint = (data: SprintFormData) => {
@@ -367,15 +148,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       toast({
         title: "Error",
         description: "No project selected.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!userCanEditProject(selectedProject.id)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to create sprints in this project.",
         variant: "destructive"
       });
       return;
@@ -390,6 +162,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updatedAt: new Date()
     };
     
+    // Create default columns specifically for this sprint
     const sprintId = newSprint.id;
     const defaultColumns: Column[] = [
       {
@@ -409,9 +182,13 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     ];
     
+    // Update the tasks in each column to include the sprintId
     const columnsWithSprintId = defaultColumns.map(column => ({
       ...column,
-      tasks: []
+      tasks: column.tasks.map(task => ({
+        ...task,
+        sprintId
+      }))
     }));
     
     setSprints([...sprints, newSprint]);
@@ -424,18 +201,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateSprint = (id: string, data: SprintFormData) => {
-    const sprint = sprints.find(s => s.id === id);
-    if (!sprint) return;
-    
-    if (!userCanEditProject(sprint.projectId)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to update sprints in this project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     const updatedSprints = sprints.map(sprint => 
       sprint.id === id 
         ? { ...sprint, ...data, updatedAt: new Date() } 
@@ -451,18 +216,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const completeSprint = (id: string) => {
-    const sprint = sprints.find(s => s.id === id);
-    if (!sprint) return;
-    
-    if (!userCanEditProject(sprint.projectId)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to complete sprints in this project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     const updatedSprints = sprints.map(sprint => 
       sprint.id === id 
         ? { ...sprint, isCompleted: true, updatedAt: new Date() } 
@@ -471,25 +224,16 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     setSprints(updatedSprints);
     
-    toast({
-      title: "Sprint completed",
-      description: `${sprint.title} has been marked as completed.`,
-    });
+    const sprint = sprints.find(s => s.id === id);
+    if (sprint) {
+      toast({
+        title: "Sprint completed",
+        description: `${sprint.title} has been marked as completed.`,
+      });
+    }
   };
 
   const createColumn = (sprintId: string, title: string) => {
-    const sprint = sprints.find(s => s.id === sprintId);
-    if (!sprint) return;
-    
-    if (!userCanEditProject(sprint.projectId)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to create columns in this project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     const newColumn: Column = {
       id: uuidv4(),
       title,
@@ -507,19 +251,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const deleteColumn = (id: string) => {
     const columnToDelete = columns.find(column => column.id === id);
     if (!columnToDelete) return;
-    
-    const task = columnToDelete.tasks[0];
-    if (task) {
-      const sprint = sprints.find(s => s.id === task.sprintId);
-      if (sprint && !userCanEditProject(sprint.projectId)) {
-        toast({
-          title: "Permission denied",
-          description: "You don't have permission to delete columns in this project.",
-          variant: "destructive"
-        });
-        return;
-      }
-    }
     
     if (columnToDelete.tasks.length > 0) {
       toast({
@@ -539,18 +270,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const createTask = (sprintId: string, columnId: string, data: TaskFormData) => {
-    const sprint = sprints.find(s => s.id === sprintId);
-    if (!sprint) return;
-    
-    if (!userCanEditProject(sprint.projectId)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to create tasks in this project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     const column = columns.find(col => col.id === columnId);
     if (!column) {
       toast({
@@ -585,30 +304,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateTask = (id: string, data: TaskFormData) => {
-    let taskProject = null;
-    let taskFound = false;
-    
-    for (const column of columns) {
-      const task = column.tasks.find(t => t.id === id);
-      if (task) {
-        taskFound = true;
-        const sprint = sprints.find(s => s.id === task.sprintId);
-        if (sprint) {
-          taskProject = sprint.projectId;
-        }
-        break;
-      }
-    }
-    
-    if (taskFound && taskProject && !userCanEditProject(taskProject)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to update tasks in this project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     const updatedColumns = columns.map(column => {
       const taskIndex = column.tasks.findIndex(task => task.id === id);
       
@@ -635,31 +330,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const deleteTask = (id: string) => {
-    let taskProject = null;
     let taskTitle = "";
     
-    for (const column of columns) {
-      const task = column.tasks.find(t => t.id === id);
-      if (task) {
-        taskTitle = task.title;
-        const sprint = sprints.find(s => s.id === task.sprintId);
-        if (sprint) {
-          taskProject = sprint.projectId;
-        }
-        break;
-      }
-    }
-    
-    if (taskProject && !userCanEditProject(taskProject)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to delete tasks in this project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     const updatedColumns = columns.map(column => {
+      const taskToDelete = column.tasks.find(task => task.id === id);
+      if (taskToDelete) taskTitle = taskToDelete.title;
+      
       return {
         ...column,
         tasks: column.tasks.filter(task => task.id !== id)
@@ -677,25 +353,20 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const moveTask = (taskId: string, sourceColumnId: string, destinationColumnId: string) => {
+    // Find the source column
     const sourceColumn = columns.find(col => col.id === sourceColumnId);
     if (!sourceColumn) return;
     
-    const task = sourceColumn.tasks.find(t => t.id === taskId);
-    if (!task) return;
+    // Find the task
+    const taskIndex = sourceColumn.tasks.findIndex(task => task.id === taskId);
+    if (taskIndex === -1) return;
     
-    const sprint = sprints.find(s => s.id === task.sprintId);
-    if (sprint && !userCanEditProject(sprint.projectId)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to move tasks in this project.",
-        variant: "destructive"
-      });
-      return;
-    }
+    // Get the task
+    const task = { ...sourceColumn.tasks[taskIndex], columnId: destinationColumnId };
     
-    const updatedTask = { ...task, columnId: destinationColumnId };
-    
+    // Update columns
     const updatedColumns = columns.map(col => {
+      // Remove from source column
       if (col.id === sourceColumnId) {
         return {
           ...col,
@@ -703,10 +374,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         };
       }
       
+      // Add to destination column
       if (col.id === destinationColumnId) {
         return {
           ...col,
-          tasks: [...col.tasks, updatedTask]
+          tasks: [...col.tasks, task]
         };
       }
       
@@ -716,20 +388,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setColumns(updatedColumns);
   };
 
+  // Backlog item functions
   const createBacklogItem = (data: BacklogItemFormData) => {
     if (!selectedProject) {
       toast({
         title: "Error",
         description: "No project selected.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!userCanEditProject(selectedProject.id)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to create backlog items in this project.",
         variant: "destructive"
       });
       return;
@@ -752,18 +416,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const updateBacklogItem = (id: string, data: BacklogItemFormData) => {
-    const backlogItem = backlogItems.find(item => item.id === id);
-    if (!backlogItem) return;
-    
-    if (!userCanEditProject(backlogItem.projectId)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to update backlog items in this project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     const updatedBacklogItems = backlogItems.map(item => 
       item.id === id 
         ? { ...item, ...data, updatedAt: new Date() } 
@@ -782,15 +434,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const itemToDelete = backlogItems.find(item => item.id === id);
     if (!itemToDelete) return;
     
-    if (!userCanEditProject(itemToDelete.projectId)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to delete backlog items in this project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     setBacklogItems(backlogItems.filter(item => item.id !== id));
     
     toast({
@@ -800,23 +443,16 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const moveBacklogItemToSprint = (backlogItemId: string, sprintId: string) => {
+    // Find the backlog item
     const backlogItem = backlogItems.find(item => item.id === backlogItemId);
     if (!backlogItem) return;
     
-    if (!userCanEditProject(backlogItem.projectId)) {
-      toast({
-        title: "Permission denied",
-        description: "You don't have permission to move backlog items in this project.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    const todoColumn = columns.find(col => 
-      col.title === "TO DO" && 
-      col.tasks.some(task => task.sprintId === sprintId)
+    // Find the TO DO column for the target sprint
+    let todoColumn = columns.find(col => 
+      col.title === "TO DO"
     );
     
+    // If TO DO column doesn't exist, create it
     if (!todoColumn) {
       toast({
         title: "Error",
@@ -826,6 +462,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
+    // Create a task from the backlog item
     const newTask: Task = {
       id: uuidv4(),
       title: backlogItem.title,
@@ -839,36 +476,25 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updatedAt: new Date()
     };
     
-    const updatedColumns = columns.map(col => 
-      col.id === todoColumn.id 
-        ? { ...col, tasks: [...col.tasks, newTask] } 
-        : col
-    );
+    // Add the task to the TO DO column
+    todoColumn.tasks.push(newTask);
     
+    // Remove the backlog item
     const updatedBacklogItems = backlogItems.filter(item => item.id !== backlogItemId);
     
-    setColumns(updatedColumns);
+    setColumns([...columns]);
     setBacklogItems(updatedBacklogItems);
     
     toast({
       title: "Item moved to sprint",
       description: `${backlogItem.title} has been moved to the selected sprint.`,
     });
-  };
-
-  const accessibleProjects = projects.filter(project => {
-    if (!isSignedIn || !user) return false;
-    
-    return (
-      project.ownerId === user.id || 
-      project.collaborators.some(c => c.userId === user.id)
-    );
-  });
+};
 
   return (
     <ProjectContext.Provider
       value={{
-        projects: accessibleProjects,
+        projects,
         selectedProject,
         sprints,
         columns,
@@ -889,11 +515,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         createBacklogItem,
         updateBacklogItem,
         deleteBacklogItem,
-        moveBacklogItemToSprint,
-        addCollaborator,
-        updateCollaboratorRole,
-        removeCollaborator,
-        userCanEditProject
+        moveBacklogItemToSprint
       }}
     >
       {children}
