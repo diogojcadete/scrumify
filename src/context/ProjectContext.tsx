@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Project, Sprint, Column, Task, BacklogItem, ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData, Collaborator, CollaboratorFormData } from "@/types";
@@ -12,6 +11,7 @@ interface ProjectContextType {
   columns: Column[];
   backlogItems: BacklogItem[];
   collaborators: Collaborator[];
+  user: any | null;
   createProject: (data: ProjectFormData) => void;
   updateProject: (id: string, data: ProjectFormData) => void;
   deleteProject: (id: string) => void;
@@ -45,7 +45,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [user, setUser] = useState<any>(null);
 
-  // Set up auth listener and load user data
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -59,7 +58,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setUser(session.user);
       } else {
         setUser(null);
-        // Clear data when user signs out
         setProjects([]);
         setSprints([]);
         setColumns([]);
@@ -74,7 +72,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, []);
 
-  // Load data from localStorage when user is authenticated
   useEffect(() => {
     if (!user) return;
     
@@ -92,7 +89,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (storedCollaborators) setCollaborators(JSON.parse(storedCollaborators));
   }, [user]);
 
-  // Save data to localStorage whenever it changes
   useEffect(() => {
     if (!user) return;
     
@@ -128,7 +124,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem(`${userIdPrefix}collaborators`, JSON.stringify(collaborators));
   }, [collaborators, user]);
 
-  // Create a new project
   const createProject = (data: ProjectFormData) => {
     if (!user) {
       toast({
@@ -156,7 +151,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Update an existing project
   const updateProject = (id: string, data: ProjectFormData) => {
     const updatedProjects = projects.map(project => 
       project.id === id 
@@ -176,21 +170,17 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Delete a project and all associated data
   const deleteProject = (id: string) => {
     const projectToDelete = projects.find(project => project.id === id);
     if (!projectToDelete) return;
     
-    // Remove the project
     setProjects(projects.filter(project => project.id !== id));
     
-    // Remove all sprints associated with this project
     const projectSprints = sprints.filter(sprint => sprint.projectId === id);
     const sprintIds = projectSprints.map(sprint => sprint.id);
     
     setSprints(sprints.filter(sprint => sprint.projectId !== id));
     
-    // Remove all tasks associated with this project's sprints
     setColumns(
       columns.map(column => ({
         ...column,
@@ -198,13 +188,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }))
     );
     
-    // Remove all backlog items associated with this project
     setBacklogItems(backlogItems.filter(item => item.projectId !== id));
     
-    // Remove all collaborators associated with this project
     setCollaborators(collaborators.filter(collab => collab.projectId !== id));
     
-    // Update selected project if needed
     if (selectedProject && selectedProject.id === id) {
       setSelectedProject(null);
     }
@@ -215,7 +202,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Select a project to view
   const selectProject = (id: string) => {
     if (!id) {
       setSelectedProject(null);
@@ -228,7 +214,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  // Create a new sprint for the selected project
   const createSprint = (data: SprintFormData) => {
     if (!selectedProject) {
       toast({
@@ -248,7 +233,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updatedAt: new Date()
     };
     
-    // Check if default columns already exist
     let todoColumnExists = false;
     let inProgressColumnExists = false;
     let doneColumnExists = false;
@@ -297,7 +281,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Update an existing sprint
   const updateSprint = (id: string, data: SprintFormData) => {
     const updatedSprints = sprints.map(sprint => 
       sprint.id === id 
@@ -313,7 +296,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Mark a sprint as completed
   const completeSprint = (id: string) => {
     const updatedSprints = sprints.map(sprint => 
       sprint.id === id 
@@ -332,9 +314,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  // Create a new column for a sprint
   const createColumn = (sprintId: string, title: string) => {
-    // First check if this column title already exists
     const columnExists = columns.some(col => col.title === title);
     
     if (columnExists) {
@@ -360,7 +340,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Delete a column
   const deleteColumn = (id: string) => {
     const columnToDelete = columns.find(column => column.id === id);
     if (!columnToDelete) return;
@@ -374,7 +353,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    // Don't allow deleting default columns
     if (["TO DO", "IN PROGRESS", "DONE"].includes(columnToDelete.title)) {
       toast({
         title: "Cannot delete default column",
@@ -392,7 +370,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Create a new task in a column
   const createTask = (sprintId: string, columnId: string, data: TaskFormData) => {
     const column = columns.find(col => col.id === columnId);
     if (!column) {
@@ -427,7 +404,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Update an existing task
   const updateTask = (id: string, data: TaskFormData) => {
     const updatedColumns = columns.map(column => {
       const taskIndex = column.tasks.findIndex(task => task.id === id);
@@ -454,7 +430,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Delete a task
   const deleteTask = (id: string) => {
     let taskTitle = "";
     
@@ -478,22 +453,16 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  // Move a task from one column to another
   const moveTask = (taskId: string, sourceColumnId: string, destinationColumnId: string) => {
-    // Find the source column
     const sourceColumn = columns.find(col => col.id === sourceColumnId);
     if (!sourceColumn) return;
     
-    // Find the task
     const taskIndex = sourceColumn.tasks.findIndex(task => task.id === taskId);
     if (taskIndex === -1) return;
     
-    // Get the task and update its columnId
     const task = { ...sourceColumn.tasks[taskIndex], columnId: destinationColumnId };
     
-    // Update columns
     const updatedColumns = columns.map(col => {
-      // Remove from source column
       if (col.id === sourceColumnId) {
         return {
           ...col,
@@ -501,7 +470,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         };
       }
       
-      // Add to destination column
       if (col.id === destinationColumnId) {
         return {
           ...col,
@@ -515,7 +483,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setColumns(updatedColumns);
   };
 
-  // Create a new backlog item
   const createBacklogItem = (data: BacklogItemFormData) => {
     if (!selectedProject) {
       toast({
@@ -542,7 +509,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Update an existing backlog item
   const updateBacklogItem = (id: string, data: BacklogItemFormData) => {
     const updatedBacklogItems = backlogItems.map(item => 
       item.id === id 
@@ -558,7 +524,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Delete a backlog item
   const deleteBacklogItem = (id: string) => {
     const itemToDelete = backlogItems.find(item => item.id === id);
     if (!itemToDelete) return;
@@ -571,13 +536,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Move a backlog item to a sprint
   const moveBacklogItemToSprint = (backlogItemId: string, sprintId: string) => {
-    // Find the backlog item
     const backlogItem = backlogItems.find(item => item.id === backlogItemId);
     if (!backlogItem) return;
     
-    // Find the TO DO column
     const todoColumn = columns.find(col => col.title === "TO DO");
     if (!todoColumn) {
       toast({
@@ -588,7 +550,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    // Create a task from the backlog item
     const newTask: Task = {
       id: uuidv4(),
       title: backlogItem.title,
@@ -602,14 +563,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updatedAt: new Date()
     };
     
-    // Add the task to the TO DO column
     const updatedColumns = columns.map(col => 
       col.id === todoColumn.id 
         ? { ...col, tasks: [...col.tasks, newTask] } 
         : col
     );
     
-    // Remove the backlog item
     const updatedBacklogItems = backlogItems.filter(item => item.id !== backlogItemId);
     
     setColumns(updatedColumns);
@@ -621,7 +580,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Invite a collaborator to a project
   const inviteCollaborator = async (projectId: string, data: CollaboratorFormData) => {
     if (!user) {
       toast({
@@ -632,7 +590,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    // Check if project exists
     const project = projects.find(p => p.id === projectId);
     if (!project) {
       toast({
@@ -643,7 +600,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    // Check if user is the project owner
     if (project.ownerId !== user.id) {
       toast({
         title: "Permission denied",
@@ -653,7 +609,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    // Check if the email is already a collaborator for this project
     const existingCollaborator = collaborators.find(
       collab => collab.projectId === projectId && collab.email === data.email
     );
@@ -667,7 +622,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    // Create a new collaborator
     const newCollaborator: Collaborator = {
       id: uuidv4(),
       projectId,
@@ -680,17 +634,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     setCollaborators([...collaborators, newCollaborator]);
     
-    // In a real app, here we would:
-    // 1. Store the invitation in the database
-    // 2. Send an email invitation to the collaborator
-    
     toast({
       title: "Invitation sent",
       description: `Invitation has been sent to ${data.email}.`,
     });
   };
 
-  // Remove a collaborator from a project
   const removeCollaborator = (id: string) => {
     if (!user) {
       toast({
@@ -704,11 +653,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const collaboratorToRemove = collaborators.find(collab => collab.id === id);
     if (!collaboratorToRemove) return;
     
-    // Find the project
     const project = projects.find(p => p.id === collaboratorToRemove.projectId);
     if (!project) return;
     
-    // Check if user is the project owner
     if (project.ownerId !== user.id) {
       toast({
         title: "Permission denied",
@@ -718,7 +665,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    // Remove the collaborator
     setCollaborators(collaborators.filter(collab => collab.id !== id));
     
     toast({
@@ -727,7 +673,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  // Get all collaborators for a specific project
   const getProjectCollaborators = (projectId: string) => {
     return collaborators.filter(collab => collab.projectId === projectId);
   };
@@ -741,6 +686,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         columns,
         backlogItems,
         collaborators,
+        user,
         createProject,
         updateProject,
         deleteProject,
