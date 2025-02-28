@@ -448,11 +448,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!backlogItem) return;
     
     // Find the TO DO column for the target sprint
-    const todoColumn = columns.find(col => 
-      col.title === "TO DO" && 
-      col.tasks.some(task => task.sprintId === sprintId)
+    let todoColumn = columns.find(col => 
+      col.title === "TO DO"
     );
     
+    // If TO DO column doesn't exist, create it
     if (!todoColumn) {
       toast({
         title: "Error",
@@ -477,23 +477,19 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
     
     // Add the task to the TO DO column
-    const updatedColumns = columns.map(col => 
-      col.id === todoColumn.id 
-        ? { ...col, tasks: [...col.tasks, newTask] } 
-        : col
-    );
+    todoColumn.tasks.push(newTask);
     
     // Remove the backlog item
     const updatedBacklogItems = backlogItems.filter(item => item.id !== backlogItemId);
     
-    setColumns(updatedColumns);
+    setColumns([...columns]);
     setBacklogItems(updatedBacklogItems);
     
     toast({
       title: "Item moved to sprint",
       description: `${backlogItem.title} has been moved to the selected sprint.`,
     });
-  };
+};
 
   return (
     <ProjectContext.Provider

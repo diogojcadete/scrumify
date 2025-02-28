@@ -21,13 +21,22 @@ const SprintBoard: React.FC<SprintBoardProps> = ({ sprint }) => {
   const [newColumnName, setNewColumnName] = useState("");
   const [activeColumnId, setActiveColumnId] = useState<string | null>(null);
 
-  // Filter columns for this sprint's tasks
-  const sprintColumns = columns.filter(column =>
-    column.tasks.some(task => task.sprintId === sprint.id) || 
-    // Also include empty default columns (TO DO, IN PROGRESS, DONE)
-    (column.tasks.length === 0 && 
-     (column.title === "TO DO" || column.title === "IN PROGRESS" || column.title === "DONE"))
+  let sprintColumns = columns.filter(column =>
+    column.tasks.some(task => task.sprintId === sprint.id) ||
+    (column.tasks.length === 0 && ["TO DO", "IN PROGRESS", "DONE"].includes(column.title))
   );
+
+  // Ensure "TO DO" column exists even if there are no tasks
+  if (!sprintColumns.some(column => column.title === "TO DO")) {
+    sprintColumns.unshift({
+      id: "todo-placeholder",
+      title: "TO DO",
+      tasks: []
+    } as Column);
+  }
+  
+  
+  
 
   const handleEditTask = (task: Task) => {
     setTaskToEdit(task);
