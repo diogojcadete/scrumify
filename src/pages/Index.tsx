@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProject } from "@/context/ProjectContext";
+import { useProject } from "@/context/project";
 import Project from "@/components/Project";
 import ProjectForm from "@/components/ProjectForm";
 import { Button } from "@/components/ui/button";

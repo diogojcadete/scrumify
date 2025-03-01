@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { useProject } from "@/context/ProjectContext";
+import { useProject } from "@/context/project";
 import { Sprint, Column, Task } from "@/types";
 import TaskCard from "./TaskCard";
 import TaskForm from "./TaskForm";

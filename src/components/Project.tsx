@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { useProject } from "@/context/ProjectContext";
+import { useProject } from "@/context/project";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Edit2, Trash } from "lucide-react";

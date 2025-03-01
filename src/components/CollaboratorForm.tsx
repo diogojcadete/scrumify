@@ -15,7 +15,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useProject } from "@/context/ProjectContext";
+import { useProject } from "@/context/project";
 import { CollaboratorFormData } from "@/types";
 
 const formSchema = z.object({
