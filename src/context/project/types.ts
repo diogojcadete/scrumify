@@ -26,7 +26,7 @@ export interface ProjectContextType {
   updateBacklogItem: (id: string, data: BacklogItemFormData) => void;
   deleteBacklogItem: (id: string) => void;
   moveBacklogItemToSprint: (backlogItemId: string, sprintId: string) => void;
-  inviteCollaborator: (projectId: string, data: CollaboratorFormData) => void;
+  inviteCollaborator: (projectId: string, projectTitle: string, data: CollaboratorFormData) => Promise<{success: boolean, error: string | null}>;
   removeCollaborator: (id: string) => void;
   getProjectCollaborators: (projectId: string) => Collaborator[];
 }

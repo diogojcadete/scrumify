@@ -44,7 +44,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Auth state management
   useEffect(() => {
     const getUser = async () => {
       const { session } = await getSession();
@@ -58,7 +57,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setUser(session?.user || null);
       
       if (!session?.user) {
-        // Clear state when logged out
         setProjects([]);
         setSprints([]);
         setColumns([]);
@@ -66,7 +64,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setCollaborators([]);
         setSelectedProject(null);
       } else {
-        // Fetch data when logged in
         fetchProjectsData();
         fetchSprintsData();
       }
@@ -77,7 +74,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, []);
 
-  // Fetch projects from the database
   const fetchProjectsData = async () => {
     if (!user) return;
     
@@ -97,7 +93,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  // Fetch sprints from the database
   const fetchSprintsData = async () => {
     if (!user) return;
     
@@ -117,13 +112,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  // Load user data based on auth state
   useEffect(() => {
     if (user) {
       fetchProjectsData();
       fetchSprintsData();
       
-      // For columns, backlog items, and collaborators, we'll still use localStorage for now
       const userIdPrefix = `user_${user.id}_`;
       const storedColumns = localStorage.getItem(`${userIdPrefix}columns`);
       const storedBacklogItems = localStorage.getItem(`${userIdPrefix}backlogItems`);
@@ -135,7 +128,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [user]);
 
-  // Save columns to localStorage (still not in DB)
   useEffect(() => {
     if (!user) return;
     
@@ -143,7 +135,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem(`${userIdPrefix}columns`, JSON.stringify(columns));
   }, [columns, user]);
 
-  // Save backlog items to localStorage (still not in DB)
   useEffect(() => {
     if (!user) return;
     
@@ -151,7 +142,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem(`${userIdPrefix}backlogItems`, JSON.stringify(backlogItems));
   }, [backlogItems, user]);
 
-  // Save collaborators to localStorage (still not in DB)
   useEffect(() => {
     if (!user) return;
     
@@ -293,7 +283,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (newSprint) {
       setSprints([...sprints, newSprint]);
       
-      // Create default columns if they don't exist
       let todoColumnExists = false;
       let inProgressColumnExists = false;
       let doneColumnExists = false;
@@ -393,7 +382,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  // These functions still use local state only - we'll keep them as is for now
   const createColumn = (sprintId: string, title: string) => {
     const columnExists = columns.some(col => col.title === title);
     
@@ -660,7 +648,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
-  const inviteCollaborator = async (projectId: string, data: CollaboratorFormData) => {
+  const inviteCollaborator = async (projectId: string, projectTitle: string, data: CollaboratorFormData) => {
     const project = projects.find(p => p.id === projectId);
     if (!project) {
       toast({
@@ -668,7 +656,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         description: "Project not found.",
         variant: "destructive"
       });
-      return;
+      return { success: false, error: "Project not found" };
     }
     
     if (project.ownerId !== user.id) {
@@ -677,12 +665,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         description: "Only the project owner can invite collaborators.",
         variant: "destructive"
       });
-      return;
+      return { success: false, error: "Permission denied" };
     }
     
     const { success, error } = await inviteCollaboratorUtil(
       projectId, 
-      project.title, 
+      projectTitle, 
       data, 
       user
     );
@@ -693,10 +681,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         description: error,
         variant: "destructive"
       });
-      return;
+      return { success: false, error };
     }
     
-    // We'll still use local state for collaborators for now
     const existingCollaborator = collaborators.find(
       collab => collab.projectId === projectId && collab.email === data.email
     );
@@ -707,7 +694,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         description: `${data.email} has already been invited to this project.`,
         variant: "destructive"
       });
-      return;
+      return { success: false, error: "Collaborator already invited" };
     }
     
     const newCollaborator: Collaborator = {
@@ -726,6 +713,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       title: "Invitation sent",
       description: `Invitation has been sent to ${data.email}.`,
     });
+    
+    return { success: true, error: null };
   };
 
   const removeCollaborator = (id: string) => {

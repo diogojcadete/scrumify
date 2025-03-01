@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/form";
 import { useProject } from "@/context/project";
 import { CollaboratorFormData } from "@/types";
+import { toast } from "@/components/ui/use-toast";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email" }),
@@ -31,7 +32,10 @@ interface CollaboratorFormProps {
 }
 
 const CollaboratorForm: React.FC<CollaboratorFormProps> = ({ projectId, onClose }) => {
-  const { inviteCollaborator } = useProject();
+  const { inviteCollaborator, projects } = useProject();
+
+  // Find the project from the projects array using projectId
+  const project = projects.find(p => p.id === projectId);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -42,12 +46,27 @@ const CollaboratorForm: React.FC<CollaboratorFormProps> = ({ projectId, onClose 
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!project) {
+      toast({
+        title: "Error",
+        description: "Project not found",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const collaboratorData: CollaboratorFormData = {
       email: values.email,
       role: values.role,
     };
     
-    await inviteCollaborator(projectId, collaboratorData);
+    const result = await inviteCollaborator(projectId, project.title, collaboratorData);
+    if (result && result.success) {
+      toast({
+        title: "Success",
+        description: `Invitation sent to ${values.email}`,
+      });
+    }
     onClose();
   };
 
