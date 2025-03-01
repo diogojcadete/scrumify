@@ -1,51 +1,36 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { Project, Sprint, Column, Task, BacklogItem, ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData, Collaborator, CollaboratorFormData } from "@/types";
-import { toast } from "@/components/ui/use-toast";
 import { 
-  supabase, 
-  getSession, 
-  createProjectInDB, 
-  getProjectsFromDB, 
-  updateProjectInDB, 
-  deleteProjectFromDB,
-  createSprintInDB,
-  getSprintsFromDB,
-  updateSprintInDB,
-  completeSprintInDB,
-  deleteSprintFromDB,
-  sendCollaboratorInvitation
-} from "@/lib/supabase";
-
-interface ProjectContextType {
-  projects: Project[];
-  selectedProject: Project | null;
-  sprints: Sprint[];
-  columns: Column[];
-  backlogItems: BacklogItem[];
-  collaborators: Collaborator[];
-  user: any | null;
-  createProject: (data: ProjectFormData) => void;
-  updateProject: (id: string, data: ProjectFormData) => void;
-  deleteProject: (id: string) => void;
-  selectProject: (id: string) => void;
-  createSprint: (data: SprintFormData) => void;
-  updateSprint: (id: string, data: SprintFormData) => void;
-  completeSprint: (id: string) => void;
-  createColumn: (sprintId: string, title: string) => void;
-  deleteColumn: (id: string) => void;
-  createTask: (sprintId: string, columnId: string, data: TaskFormData) => void;
-  updateTask: (id: string, data: TaskFormData) => void;
-  deleteTask: (id: string) => void;
-  moveTask: (taskId: string, sourceColumnId: string, destinationColumnId: string) => void;
-  createBacklogItem: (data: BacklogItemFormData) => void;
-  updateBacklogItem: (id: string, data: BacklogItemFormData) => void;
-  deleteBacklogItem: (id: string) => void;
-  moveBacklogItemToSprint: (backlogItemId: string, sprintId: string) => void;
-  inviteCollaborator: (projectId: string, data: CollaboratorFormData) => void;
-  removeCollaborator: (id: string) => void;
-  getProjectCollaborators: (projectId: string) => Collaborator[];
-}
+  Project, 
+  Sprint, 
+  Column, 
+  Task, 
+  BacklogItem, 
+  ProjectFormData, 
+  SprintFormData, 
+  TaskFormData, 
+  BacklogItemFormData, 
+  Collaborator, 
+  CollaboratorFormData 
+} from "@/types";
+import { toast } from "@/components/ui/use-toast";
+import { supabase, getSession } from "@/lib/supabase";
+import { ProjectContextType } from "./types";
+import { 
+  fetchProjects, 
+  createProject as createProjectUtil, 
+  updateProject as updateProjectUtil,
+  deleteProject as deleteProjectUtil
+} from "./projectUtils";
+import {
+  fetchSprints,
+  createSprint as createSprintUtil,
+  updateSprint as updateSprintUtil,
+  completeSprint as completeSprintUtil
+} from "./sprintUtils";
+import {
+  inviteCollaborator as inviteCollaboratorUtil
+} from "./collaboratorUtils";
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
@@ -82,8 +67,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setSelectedProject(null);
       } else {
         // Fetch data when logged in
-        fetchProjects();
-        fetchSprints();
+        fetchProjectsData();
+        fetchSprintsData();
       }
     });
 
@@ -93,81 +78,50 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   // Fetch projects from the database
-  const fetchProjects = async () => {
+  const fetchProjectsData = async () => {
     if (!user) return;
     
-    try {
-      const { data, error } = await getProjectsFromDB();
-      
-      if (error) {
-        console.error("Error fetching projects:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load projects. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      if (data) {
-        // Convert database date strings to Date objects
-        const formattedProjects = data.map(project => ({
-          ...project,
-          createdAt: new Date(project.created_at),
-          updatedAt: new Date(project.updated_at),
-          ownerId: project.owner_id
-        }));
-        
-        setProjects(formattedProjects);
-      }
-    } catch (error) {
-      console.error("Error in fetchProjects:", error);
+    const { data, error } = await fetchProjects(user);
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load projects. Please try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (data) {
+      setProjects(data);
     }
   };
 
   // Fetch sprints from the database
-  const fetchSprints = async () => {
+  const fetchSprintsData = async () => {
     if (!user) return;
     
-    try {
-      const { data, error } = await getSprintsFromDB();
-      
-      if (error) {
-        console.error("Error fetching sprints:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load sprints. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      if (data) {
-        // Convert database fields to match our Sprint type
-        const formattedSprints = data.map(sprint => ({
-          id: sprint.id,
-          projectId: sprint.project_id,
-          title: sprint.title,
-          description: sprint.description,
-          startDate: new Date(sprint.start_date),
-          endDate: new Date(sprint.end_date),
-          isCompleted: sprint.is_completed,
-          createdAt: new Date(sprint.created_at),
-          updatedAt: new Date(sprint.updated_at)
-        }));
-        
-        setSprints(formattedSprints);
-      }
-    } catch (error) {
-      console.error("Error in fetchSprints:", error);
+    const { data, error } = await fetchSprints(user);
+    
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load sprints. Please try again.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (data) {
+      setSprints(data);
     }
   };
 
   // Load user data based on auth state
   useEffect(() => {
     if (user) {
-      fetchProjects();
-      fetchSprints();
+      fetchProjectsData();
+      fetchSprintsData();
       
       // For columns, backlog items, and collaborators, we'll still use localStorage for now
       const userIdPrefix = `user_${user.id}_`;
@@ -206,144 +160,74 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [collaborators, user]);
 
   const createProject = async (data: ProjectFormData) => {
-    if (!user) {
+    const { data: newProject, error } = await createProjectUtil(data, user);
+    
+    if (error) {
       toast({
-        title: "Authentication required",
-        description: "You need to sign in to create a project",
+        title: "Error",
+        description: error,
         variant: "destructive"
       });
       return;
     }
     
-    try {
-      const { data: newProject, error } = await createProjectInDB(data, user.id);
+    if (newProject) {
+      setProjects([...projects, newProject]);
+      setSelectedProject(newProject);
       
-      if (error) {
-        console.error("Error creating project:", error);
-        toast({
-          title: "Error",
-          description: "Failed to create project. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      if (newProject) {
-        // Convert database fields to match our Project type
-        const formattedProject = {
-          id: newProject.id,
-          title: newProject.title,
-          description: newProject.description,
-          endGoal: newProject.end_goal,
-          ownerId: newProject.owner_id,
-          createdAt: new Date(newProject.created_at),
-          updatedAt: new Date(newProject.updated_at)
-        };
-        
-        setProjects([...projects, formattedProject]);
-        setSelectedProject(formattedProject);
-        
-        toast({
-          title: "Project created",
-          description: `${data.title} has been created successfully.`,
-        });
-      }
-    } catch (error) {
-      console.error("Error in createProject:", error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
+        title: "Project created",
+        description: `${data.title} has been created successfully.`,
       });
     }
   };
 
   const updateProject = async (id: string, data: ProjectFormData) => {
-    if (!user) {
+    const { data: updatedProject, error } = await updateProjectUtil(id, data, user);
+    
+    if (error) {
       toast({
-        title: "Authentication required",
-        description: "You need to sign in to update a project",
+        title: "Error",
+        description: error,
         variant: "destructive"
       });
       return;
     }
     
-    try {
-      const { data: updatedProject, error } = await updateProjectInDB(id, data);
+    if (updatedProject) {
+      const updatedProjects = projects.map(project => 
+        project.id === id ? updatedProject : project
+      );
       
-      if (error) {
-        console.error("Error updating project:", error);
-        toast({
-          title: "Error",
-          description: "Failed to update project. Please try again.",
-          variant: "destructive"
-        });
-        return;
+      setProjects(updatedProjects);
+      
+      if (selectedProject && selectedProject.id === id) {
+        setSelectedProject(updatedProject);
       }
       
-      if (updatedProject) {
-        // Convert database fields to match our Project type
-        const formattedProject = {
-          id: updatedProject.id,
-          title: updatedProject.title,
-          description: updatedProject.description,
-          endGoal: updatedProject.end_goal,
-          ownerId: updatedProject.owner_id,
-          createdAt: new Date(updatedProject.created_at),
-          updatedAt: new Date(updatedProject.updated_at)
-        };
-        
-        const updatedProjects = projects.map(project => 
-          project.id === id ? formattedProject : project
-        );
-        
-        setProjects(updatedProjects);
-        
-        if (selectedProject && selectedProject.id === id) {
-          setSelectedProject(formattedProject);
-        }
-        
-        toast({
-          title: "Project updated",
-          description: `${data.title} has been updated successfully.`,
-        });
-      }
-    } catch (error) {
-      console.error("Error in updateProject:", error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
+        title: "Project updated",
+        description: `${data.title} has been updated successfully.`,
       });
     }
   };
 
   const deleteProject = async (id: string) => {
-    if (!user) {
+    const projectToDelete = projects.find(project => project.id === id);
+    if (!projectToDelete) return;
+    
+    const { success, error } = await deleteProjectUtil(id, user);
+    
+    if (error) {
       toast({
-        title: "Authentication required",
-        description: "You need to sign in to delete a project",
+        title: "Error",
+        description: error,
         variant: "destructive"
       });
       return;
     }
     
-    const projectToDelete = projects.find(project => project.id === id);
-    if (!projectToDelete) return;
-    
-    try {
-      const { error } = await deleteProjectFromDB(id);
-      
-      if (error) {
-        console.error("Error deleting project:", error);
-        toast({
-          title: "Error",
-          description: "Failed to delete project. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
+    if (success) {
       setProjects(projects.filter(project => project.id !== id));
       
       const projectSprints = sprints.filter(sprint => sprint.projectId === id);
@@ -370,13 +254,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         title: "Project deleted",
         description: `${projectToDelete.title} has been deleted successfully.`,
       });
-    } catch (error) {
-      console.error("Error in deleteProject:", error);
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
-      });
     }
   };
 
@@ -393,15 +270,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const createSprint = async (data: SprintFormData) => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "You need to sign in to create a sprint",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     if (!selectedProject) {
       toast({
         title: "Error",
@@ -411,209 +279,121 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    try {
-      const { data: newSprint, error } = await createSprintInDB(data, selectedProject.id);
-      
-      if (error) {
-        console.error("Error creating sprint:", error);
-        toast({
-          title: "Error",
-          description: "Failed to create sprint. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      if (newSprint) {
-        // Convert database fields to match our Sprint type
-        const formattedSprint = {
-          id: newSprint.id,
-          projectId: newSprint.project_id,
-          title: newSprint.title,
-          description: newSprint.description,
-          startDate: new Date(newSprint.start_date),
-          endDate: new Date(newSprint.end_date),
-          isCompleted: newSprint.is_completed,
-          createdAt: new Date(newSprint.created_at),
-          updatedAt: new Date(newSprint.updated_at)
-        };
-        
-        setSprints([...sprints, formattedSprint]);
-        
-        // Create default columns if they don't exist
-        let todoColumnExists = false;
-        let inProgressColumnExists = false;
-        let doneColumnExists = false;
-        
-        columns.forEach(column => {
-          if (column.title === "TO DO") todoColumnExists = true;
-          if (column.title === "IN PROGRESS") inProgressColumnExists = true;
-          if (column.title === "DONE") doneColumnExists = true;
-        });
-        
-        const newColumns: Column[] = [];
-        
-        if (!todoColumnExists) {
-          newColumns.push({
-            id: uuidv4(),
-            title: "TO DO",
-            tasks: []
-          });
-        }
-        
-        if (!inProgressColumnExists) {
-          newColumns.push({
-            id: uuidv4(),
-            title: "IN PROGRESS",
-            tasks: []
-          });
-        }
-        
-        if (!doneColumnExists) {
-          newColumns.push({
-            id: uuidv4(),
-            title: "DONE",
-            tasks: []
-          });
-        }
-        
-        if (newColumns.length > 0) {
-          setColumns([...columns, ...newColumns]);
-        }
-        
-        toast({
-          title: "Sprint created",
-          description: `${data.title} has been created successfully.`,
-        });
-      }
-    } catch (error) {
-      console.error("Error in createSprint:", error);
+    const { data: newSprint, error } = await createSprintUtil(data, selectedProject.id, user);
+    
+    if (error) {
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: error,
         variant: "destructive"
+      });
+      return;
+    }
+    
+    if (newSprint) {
+      setSprints([...sprints, newSprint]);
+      
+      // Create default columns if they don't exist
+      let todoColumnExists = false;
+      let inProgressColumnExists = false;
+      let doneColumnExists = false;
+      
+      columns.forEach(column => {
+        if (column.title === "TO DO") todoColumnExists = true;
+        if (column.title === "IN PROGRESS") inProgressColumnExists = true;
+        if (column.title === "DONE") doneColumnExists = true;
+      });
+      
+      const newColumns: Column[] = [];
+      
+      if (!todoColumnExists) {
+        newColumns.push({
+          id: uuidv4(),
+          title: "TO DO",
+          tasks: []
+        });
+      }
+      
+      if (!inProgressColumnExists) {
+        newColumns.push({
+          id: uuidv4(),
+          title: "IN PROGRESS",
+          tasks: []
+        });
+      }
+      
+      if (!doneColumnExists) {
+        newColumns.push({
+          id: uuidv4(),
+          title: "DONE",
+          tasks: []
+        });
+      }
+      
+      if (newColumns.length > 0) {
+        setColumns([...columns, ...newColumns]);
+      }
+      
+      toast({
+        title: "Sprint created",
+        description: `${data.title} has been created successfully.`,
       });
     }
   };
 
   const updateSprint = async (id: string, data: SprintFormData) => {
-    if (!user) {
+    const { data: updatedSprint, error } = await updateSprintUtil(id, data, user);
+    
+    if (error) {
       toast({
-        title: "Authentication required",
-        description: "You need to sign in to update a sprint",
+        title: "Error",
+        description: error,
         variant: "destructive"
       });
       return;
     }
     
-    try {
-      const { data: updatedSprint, error } = await updateSprintInDB(id, data);
+    if (updatedSprint) {
+      const updatedSprints = sprints.map(sprint => 
+        sprint.id === id ? updatedSprint : sprint
+      );
       
-      if (error) {
-        console.error("Error updating sprint:", error);
-        toast({
-          title: "Error",
-          description: "Failed to update sprint. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
+      setSprints(updatedSprints);
       
-      if (updatedSprint) {
-        // Convert database fields to match our Sprint type
-        const formattedSprint = {
-          id: updatedSprint.id,
-          projectId: updatedSprint.project_id,
-          title: updatedSprint.title,
-          description: updatedSprint.description,
-          startDate: new Date(updatedSprint.start_date),
-          endDate: new Date(updatedSprint.end_date),
-          isCompleted: updatedSprint.is_completed,
-          createdAt: new Date(updatedSprint.created_at),
-          updatedAt: new Date(updatedSprint.updated_at)
-        };
-        
-        const updatedSprints = sprints.map(sprint => 
-          sprint.id === id ? formattedSprint : sprint
-        );
-        
-        setSprints(updatedSprints);
-        
-        toast({
-          title: "Sprint updated",
-          description: `${data.title} has been updated successfully.`,
-        });
-      }
-    } catch (error) {
-      console.error("Error in updateSprint:", error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
+        title: "Sprint updated",
+        description: `${data.title} has been updated successfully.`,
       });
     }
   };
 
   const completeSprint = async (id: string) => {
-    if (!user) {
+    const { data: updatedSprint, error } = await completeSprintUtil(id, user);
+    
+    if (error) {
       toast({
-        title: "Authentication required",
-        description: "You need to sign in to complete a sprint",
+        title: "Error",
+        description: error,
         variant: "destructive"
       });
       return;
     }
     
-    try {
-      const { data: updatedSprint, error } = await completeSprintInDB(id);
+    if (updatedSprint) {
+      const updatedSprints = sprints.map(sprint => 
+        sprint.id === id ? updatedSprint : sprint
+      );
       
-      if (error) {
-        console.error("Error completing sprint:", error);
-        toast({
-          title: "Error",
-          description: "Failed to complete sprint. Please try again.",
-          variant: "destructive"
-        });
-        return;
-      }
+      setSprints(updatedSprints);
       
-      if (updatedSprint) {
-        // Convert database fields to match our Sprint type
-        const formattedSprint = {
-          id: updatedSprint.id,
-          projectId: updatedSprint.project_id,
-          title: updatedSprint.title,
-          description: updatedSprint.description,
-          startDate: new Date(updatedSprint.start_date),
-          endDate: new Date(updatedSprint.end_date),
-          isCompleted: updatedSprint.is_completed,
-          createdAt: new Date(updatedSprint.created_at),
-          updatedAt: new Date(updatedSprint.updated_at)
-        };
-        
-        const updatedSprints = sprints.map(sprint => 
-          sprint.id === id ? formattedSprint : sprint
-        );
-        
-        setSprints(updatedSprints);
-        
-        toast({
-          title: "Sprint completed",
-          description: `${formattedSprint.title} has been marked as completed.`,
-        });
-      }
-    } catch (error) {
-      console.error("Error in completeSprint:", error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive"
+        title: "Sprint completed",
+        description: `${updatedSprint.title} has been marked as completed.`,
       });
     }
   };
 
   // These functions still use local state only - we'll keep them as is for now
-  // In a future update, we would implement these with Supabase as well
   const createColumn = (sprintId: string, title: string) => {
     const columnExists = columns.some(col => col.title === title);
     
@@ -881,15 +661,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const inviteCollaborator = async (projectId: string, data: CollaboratorFormData) => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "You need to sign in to invite collaborators",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     const project = projects.find(p => p.id === projectId);
     if (!project) {
       toast({
@@ -909,56 +680,52 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    try {
-      const result = await sendCollaboratorInvitation(projectId, project.title, data);
-      
-      if (!result.success) {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to send invitation.",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      // We'll still use local state for collaborators for now
-      const existingCollaborator = collaborators.find(
-        collab => collab.projectId === projectId && collab.email === data.email
-      );
-      
-      if (existingCollaborator) {
-        toast({
-          title: "Already invited",
-          description: `${data.email} has already been invited to this project.`,
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      const newCollaborator: Collaborator = {
-        id: uuidv4(),
-        projectId,
-        email: data.email,
-        role: data.role,
-        status: "pending",
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      
-      setCollaborators([...collaborators, newCollaborator]);
-      
-      toast({
-        title: "Invitation sent",
-        description: `Invitation has been sent to ${data.email}.`,
-      });
-    } catch (error) {
-      console.error("Error in inviteCollaborator:", error);
+    const { success, error } = await inviteCollaboratorUtil(
+      projectId, 
+      project.title, 
+      data, 
+      user
+    );
+    
+    if (error) {
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: error,
         variant: "destructive"
       });
+      return;
     }
+    
+    // We'll still use local state for collaborators for now
+    const existingCollaborator = collaborators.find(
+      collab => collab.projectId === projectId && collab.email === data.email
+    );
+    
+    if (existingCollaborator) {
+      toast({
+        title: "Already invited",
+        description: `${data.email} has already been invited to this project.`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const newCollaborator: Collaborator = {
+      id: uuidv4(),
+      projectId,
+      email: data.email,
+      role: data.role,
+      status: "pending",
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    setCollaborators([...collaborators, newCollaborator]);
+    
+    toast({
+      title: "Invitation sent",
+      description: `Invitation has been sent to ${data.email}.`,
+    });
   };
 
   const removeCollaborator = (id: string) => {

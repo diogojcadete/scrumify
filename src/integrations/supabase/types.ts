@@ -9,6 +9,47 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      backlog_items: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          priority: string
+          project_id: string
+          story_points: number
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          priority: string
+          project_id: string
+          story_points?: number
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          priority?: string
+          project_id?: string
+          story_points?: number
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backlog_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       collaborators: {
         Row: {
           created_at: string | null
@@ -46,6 +87,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      columns: {
+        Row: {
+          created_at: string | null
+          id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       projects: {
         Row: {
@@ -117,6 +179,60 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          assignee: string | null
+          column_id: string
+          created_at: string | null
+          description: string | null
+          id: string
+          priority: string
+          sprint_id: string
+          story_points: number
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assignee?: string | null
+          column_id: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          priority: string
+          sprint_id: string
+          story_points?: number
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assignee?: string | null
+          column_id?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          priority?: string
+          sprint_id?: string
+          story_points?: number
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "columns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_sprint_id_fkey"
+            columns: ["sprint_id"]
+            isOneToOne: false
+            referencedRelation: "sprints"
             referencedColumns: ["id"]
           },
         ]
