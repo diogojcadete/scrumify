@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { 
@@ -763,7 +764,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (result.success) {
       const updatedCollaborators = collaborators.map(collab => 
         collab.id === collaboratorId 
-          ? { ...collab, status: "accepted" } 
+          ? { ...collab, status: "accepted" as "accepted" } // Explicitly cast to the correct type
           : collab
       );
       
@@ -779,7 +780,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (result.success) {
       const updatedCollaborators = collaborators.map(collab => 
         collab.id === collaboratorId 
-          ? { ...collab, status: "rejected" } 
+          ? { ...collab, status: "rejected" as "rejected" } // Explicitly cast to the correct type
           : collab
       );
       
