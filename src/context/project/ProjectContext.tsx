@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { 
@@ -33,7 +32,7 @@ import {
   inviteCollaborator as inviteCollaboratorUtil,
   acceptInvitation as acceptInvitationUtil,
   rejectInvitation as rejectInvitationUtil,
-  getInvitations as getInvitationsUtil
+  fetchInvitations as fetchInvitationsUtil
 } from "./collaboratorUtils";
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -672,20 +671,19 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { success: false, error: "Permission denied" };
     }
     
-    const { success, error } = await inviteCollaboratorUtil(
+    const result = await inviteCollaboratorUtil(
       projectId, 
-      projectTitle, 
-      data, 
-      user
+      data,
+      projects
     );
     
-    if (error) {
+    if (result.error) {
       toast({
         title: "Error",
-        description: error,
+        description: result.error,
         variant: "destructive"
       });
-      return { success: false, error };
+      return { success: false, error: result.error };
     }
     
     const existingCollaborator = collaborators.find(
@@ -759,12 +757,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const acceptInvitation = async (collaboratorId: string) => {
-    const result = await acceptInvitationUtil(collaboratorId, user);
+    const result = await acceptInvitationUtil(collaboratorId);
     
     if (result.success) {
       const updatedCollaborators = collaborators.map(collab => 
         collab.id === collaboratorId 
-          ? { ...collab, status: "accepted" as "accepted" } // Explicitly cast to the correct type
+          ? { ...collab, status: "accepted" as "accepted" }
           : collab
       );
       
@@ -775,12 +773,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const rejectInvitation = async (collaboratorId: string) => {
-    const result = await rejectInvitationUtil(collaboratorId, user);
+    const result = await rejectInvitationUtil(collaboratorId);
     
     if (result.success) {
       const updatedCollaborators = collaborators.map(collab => 
         collab.id === collaboratorId 
-          ? { ...collab, status: "rejected" as "rejected" } // Explicitly cast to the correct type
+          ? { ...collab, status: "rejected" as "rejected" }
           : collab
       );
       
@@ -791,7 +789,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const getInvitations = async () => {
-    return await getInvitationsUtil(user);
+    if (!user?.email) {
+      return { success: false, data: null, error: "User not authenticated" };
+    }
+    return await fetchInvitationsUtil(user.email);
   };
 
   if (loading) {

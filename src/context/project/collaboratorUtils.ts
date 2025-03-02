@@ -1,5 +1,5 @@
 
-import { Collaborator, CollaboratorFormData, Project } from "@/types";
+import { Collaborator, CollaboratorFormData } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { 
   sendCollaboratorInvitation,
@@ -68,11 +68,11 @@ export const fetchInvitations = async (email: string) => {
     
     if (error) {
       console.error("Error fetching invitations:", error);
-      return { data: null, error };
+      return { data: null, error, success: false };
     }
     
     if (!data || data.length === 0) {
-      return { data: [], error: null };
+      return { data: [], error: null, success: true };
     }
     
     // Transform from DB format to our application format
@@ -88,10 +88,10 @@ export const fetchInvitations = async (email: string) => {
       updatedAt: new Date(item.created_at)
     }));
     
-    return { data: invitations, error: null };
+    return { data: invitations, error: null, success: true };
   } catch (error) {
     console.error("Error in fetchInvitations:", error);
-    return { data: null, error: "Failed to fetch invitations" };
+    return { data: null, error: "Failed to fetch invitations", success: false };
   }
 };
 
@@ -146,3 +146,6 @@ export const rejectInvitation = async (collaboratorId: string) => {
     return { success: false, error: "An unexpected error occurred" };
   }
 };
+
+// Explicitly export the fetchInvitations function as getInvitations for backward compatibility
+export const getInvitations = fetchInvitations;
