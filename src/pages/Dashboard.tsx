@@ -25,24 +25,37 @@ const Dashboard = () => {
 
   const fetchInvitations = async () => {
     setIsLoading(true);
-    const result = await getInvitations();
-    if (result.success && result.data) {
-      setInvitations(result.data);
-    } else {
+    try {
+      const result = await getInvitations();
+      if (result.success && result.data) {
+        console.log("Invitations loaded:", result.data);
+        setInvitations(result.data);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to load invitations",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching invitations:", error);
       toast({
         title: "Error",
-        description: result.error || "Failed to load invitations",
+        description: "An unexpected error occurred loading invitations",
         variant: "destructive"
       });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   useEffect(() => {
     if (user) {
       fetchInvitations();
+    } else {
+      navigate("/sign-in");
     }
-  }, [user]);
+  }, [user, navigate]);
 
   const handleSignOut = async () => {
     const { error } = await signOut();

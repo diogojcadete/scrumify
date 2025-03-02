@@ -81,6 +81,7 @@ export const acceptInvitation = async (
       .single();
     
     if (error) {
+      console.error("Error accepting invitation:", error);
       return { 
         success: false, 
         error: error.message || "Failed to accept invitation." 
@@ -118,6 +119,7 @@ export const rejectInvitation = async (
       .single();
     
     if (error) {
+      console.error("Error rejecting invitation:", error);
       return { 
         success: false, 
         error: error.message || "Failed to reject invitation." 
@@ -144,6 +146,7 @@ export const getInvitations = async (user: any) => {
   }
   
   try {
+    console.log("Fetching invitations for user:", user.email);
     const { data, error } = await supabase
       .from('collaborators')
       .select(`
@@ -157,6 +160,7 @@ export const getInvitations = async (user: any) => {
       .eq('status', 'pending');
     
     if (error) {
+      console.error("Error fetching invitations:", error);
       return { 
         data: null,
         success: false, 
@@ -164,6 +168,7 @@ export const getInvitations = async (user: any) => {
       };
     }
     
+    console.log("Invitations found:", data);
     return { data, success: true, error: null };
   } catch (error) {
     console.error("Error in getInvitations:", error);

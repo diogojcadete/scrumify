@@ -29,7 +29,10 @@ import {
   completeSprint as completeSprintUtil
 } from "./sprintUtils";
 import {
-  inviteCollaborator as inviteCollaboratorUtil
+  inviteCollaborator as inviteCollaboratorUtil,
+  acceptInvitation as acceptInvitationUtil,
+  rejectInvitation as rejectInvitationUtil,
+  getInvitations as getInvitationsUtil
 } from "./collaboratorUtils";
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -754,6 +757,42 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return collaborators.filter(collab => collab.projectId === projectId);
   };
 
+  const acceptInvitation = async (collaboratorId: string) => {
+    const result = await acceptInvitationUtil(collaboratorId, user);
+    
+    if (result.success) {
+      const updatedCollaborators = collaborators.map(collab => 
+        collab.id === collaboratorId 
+          ? { ...collab, status: "accepted" } 
+          : collab
+      );
+      
+      setCollaborators(updatedCollaborators);
+    }
+    
+    return result;
+  };
+
+  const rejectInvitation = async (collaboratorId: string) => {
+    const result = await rejectInvitationUtil(collaboratorId, user);
+    
+    if (result.success) {
+      const updatedCollaborators = collaborators.map(collab => 
+        collab.id === collaboratorId 
+          ? { ...collab, status: "rejected" } 
+          : collab
+      );
+      
+      setCollaborators(updatedCollaborators);
+    }
+    
+    return result;
+  };
+
+  const getInvitations = async () => {
+    return await getInvitationsUtil(user);
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -787,7 +826,10 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         moveBacklogItemToSprint,
         inviteCollaborator,
         removeCollaborator,
-        getProjectCollaborators
+        getProjectCollaborators,
+        acceptInvitation,
+        rejectInvitation,
+        getInvitations
       }}
     >
       {children}
