@@ -788,11 +788,12 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return result;
   };
 
-  const getInvitations = async () => {
-    if (!user?.email) {
+  const getInvitations = async (email?: string) => {
+    if (!user?.email && !email) {
       return { success: false, data: null, error: "User not authenticated" };
     }
-    return await fetchInvitationsUtil(user.email);
+    const userEmail = email || user.email;
+    return await fetchInvitationsUtil(userEmail);
   };
 
   if (loading) {

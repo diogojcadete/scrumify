@@ -1,4 +1,3 @@
-
 import { Collaborator, CollaboratorFormData, Project } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { 
@@ -158,5 +157,11 @@ export const rejectInvitation = async (collaboratorId: string) => {
   }
 };
 
-// Explicitly export the fetchInvitations function as getInvitations for backward compatibility
-export const getInvitations = fetchInvitations;
+// Update the type compatibility by making the parameter optional for backward compatibility
+export const getInvitations = async (email?: string) => {
+  if (!email) {
+    console.error("Email is required to fetch invitations");
+    return { data: null, error: "Email is required", success: false };
+  }
+  return await fetchInvitations(email);
+};
