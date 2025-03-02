@@ -31,5 +31,5 @@ export interface ProjectContextType {
   getProjectCollaborators: (projectId: string) => Collaborator[];
   acceptInvitation: (collaboratorId: string) => Promise<{success: boolean, error: string | null}>;
   rejectInvitation: (collaboratorId: string) => Promise<{success: boolean, error: string | null}>;
-  getInvitations: () => Promise<{data: any, success: boolean, error: string | null}>;
+  getInvitations: (email?: string) => Promise<{data: any, success: boolean, error: string | null}>;
 }
