@@ -41,6 +41,7 @@ const Dashboard = () => {
         console.log("Invitations loaded:", result.data);
         setInvitations(result.data);
       } else {
+        console.error("Failed to load invitations:", result.error);
         toast({
           title: "Error",
           description: result.error || "Failed to load invitations",

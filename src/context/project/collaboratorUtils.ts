@@ -1,3 +1,4 @@
+
 import { Collaborator, CollaboratorFormData, Project } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { 
@@ -77,11 +78,11 @@ export const fetchInvitations = async (email: string) => {
     // Transform from DB format to our application format with null checks
     const invitations = data.map(item => {
       // Check if projects exists and has necessary properties
-      const projectId = item.projects?.id || null;
+      const projectId = item.projects?.id || '';
       const projectTitle = item.projects?.title || "Unknown Project";
       const projectDescription = item.projects?.description || "";
       
-      if (!projectId) {
+      if (!item.projects) {
         console.warn("Invitation has null project reference:", item);
       }
       
@@ -96,7 +97,7 @@ export const fetchInvitations = async (email: string) => {
         createdAt: new Date(item.created_at),
         updatedAt: new Date(item.created_at)
       };
-    }).filter(invitation => invitation.projectId !== null); // Filter out invalid invitations
+    });
     
     return { data: invitations, error: null, success: true };
   } catch (error) {
