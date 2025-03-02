@@ -29,4 +29,7 @@ export interface ProjectContextType {
   inviteCollaborator: (projectId: string, projectTitle: string, data: CollaboratorFormData) => Promise<{success: boolean, error: string | null}>;
   removeCollaborator: (id: string) => void;
   getProjectCollaborators: (projectId: string) => Collaborator[];
+  acceptInvitation: (collaboratorId: string) => Promise<{success: boolean, error: string | null}>;
+  rejectInvitation: (collaboratorId: string) => Promise<{success: boolean, error: string | null}>;
+  getInvitations: () => Promise<{data: any, success: boolean, error: string | null}>;
 }

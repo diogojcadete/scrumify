@@ -66,8 +66,14 @@ const CollaboratorForm: React.FC<CollaboratorFormProps> = ({ projectId, onClose 
         title: "Success",
         description: `Invitation sent to ${values.email}`,
       });
+      onClose();
+    } else if (result && !result.success) {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to send invitation",
+        variant: "destructive"
+      });
     }
-    onClose();
   };
 
   return (
