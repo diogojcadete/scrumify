@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { CollaboratorFormData, ProjectFormData, SprintFormData } from '@/types';
 

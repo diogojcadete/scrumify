@@ -26,7 +26,17 @@ const Dashboard = () => {
   const fetchInvitations = async () => {
     setIsLoading(true);
     try {
-      const result = await getInvitations();
+      if (!user?.email) {
+        toast({
+          title: "Error",
+          description: "User not authenticated",
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      const result = await getInvitations(user.email);
       if (result.success && result.data) {
         console.log("Invitations loaded:", result.data);
         setInvitations(result.data);
@@ -159,13 +169,13 @@ const Dashboard = () => {
                       <Card key={invitation.id} className="bg-accent/20">
                         <CardHeader className="pb-2">
                           <div className="flex justify-between">
-                            <CardTitle className="text-xl">{invitation.projects?.title || "Unnamed Project"}</CardTitle>
+                            <CardTitle className="text-xl">{invitation.projectTitle || "Unnamed Project"}</CardTitle>
                             <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
                               {invitation.role}
                             </Badge>
                           </div>
                           <CardDescription>
-                            {invitation.projects?.description || "No description provided"}
+                            {invitation.projectDescription || "No description provided"}
                           </CardDescription>
                         </CardHeader>
                         <CardFooter className="pt-4 flex justify-end gap-2">
@@ -209,7 +219,7 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <h3 className="font-medium">{user?.email}</h3>
-                    <p className="text-sm text-muted-foreground">Account created: {new Date(user?.created_at).toLocaleDateString()}</p>
+                    <p className="text-sm text-muted-foreground">Account created: {user?.created_at ? new Date(user.created_at).toLocaleDateString() : "N/A"}</p>
                   </div>
                 </div>
               </CardContent>

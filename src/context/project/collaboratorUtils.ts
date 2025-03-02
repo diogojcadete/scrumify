@@ -75,18 +75,29 @@ export const fetchInvitations = async (email: string) => {
       return { data: [], error: null, success: true };
     }
     
-    // Transform from DB format to our application format
-    const invitations = data.map(item => ({
-      id: item.id,
-      projectId: item.projects.id,
-      projectTitle: item.projects.title,
-      projectDescription: item.projects.description,
-      email: item.email,
-      role: item.role,
-      status: item.status,
-      createdAt: new Date(item.created_at),
-      updatedAt: new Date(item.created_at)
-    }));
+    // Transform from DB format to our application format with null checks
+    const invitations = data.map(item => {
+      // Check if projects exists and has necessary properties
+      const projectId = item.projects?.id || null;
+      const projectTitle = item.projects?.title || "Unknown Project";
+      const projectDescription = item.projects?.description || "";
+      
+      if (!projectId) {
+        console.warn("Invitation has null project reference:", item);
+      }
+      
+      return {
+        id: item.id,
+        projectId,
+        projectTitle,
+        projectDescription,
+        email: item.email,
+        role: item.role,
+        status: item.status,
+        createdAt: new Date(item.created_at),
+        updatedAt: new Date(item.created_at)
+      };
+    }).filter(invitation => invitation.projectId !== null); // Filter out invalid invitations
     
     return { data: invitations, error: null, success: true };
   } catch (error) {
