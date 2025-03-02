@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { CollaboratorFormData, ProjectFormData, SprintFormData } from '@/types';
 
@@ -175,7 +176,7 @@ export async function sendCollaboratorInvitation(projectId: string, projectTitle
         role: collaboratorData.role
       })
       .select()
-      .single();
+      .maybeSingle(); // Changed from single() to maybeSingle() to handle zero or multiple records
     
     if (dbError) {
       console.error('Failed to store invitation:', dbError);
@@ -190,17 +191,19 @@ export async function sendCollaboratorInvitation(projectId: string, projectTitle
         inviterEmail,
         projectId,
         role: collaboratorData.role,
-        collaboratorId: collaborator.id
+        collaboratorId: collaborator?.id
       }
     });
     
     if (error) {
       console.error('Failed to send invitation email:', error);
       // Delete the collaborator record if the email fails
-      await supabase
-        .from('collaborators')
-        .delete()
-        .eq('id', collaborator.id);
+      if (collaborator?.id) {
+        await supabase
+          .from('collaborators')
+          .delete()
+          .eq('id', collaborator.id);
+      }
       return { success: false, error: error.message };
     }
     
@@ -208,5 +211,62 @@ export async function sendCollaboratorInvitation(projectId: string, projectTitle
   } catch (error) {
     console.error('Error sending invitation:', error);
     return { success: false, error: 'Failed to send invitation' };
+  }
+}
+
+// Add new function to get invitations for a user
+export async function getInvitationsForUser(email: string) {
+  try {
+    const { data, error } = await supabase
+      .from('collaborators')
+      .select(`
+        id,
+        email,
+        role,
+        status,
+        created_at,
+        projects (
+          id,
+          title,
+          description
+        )
+      `)
+      .eq('email', email)
+      .eq('status', 'pending');
+    
+    if (error) {
+      console.error('Error fetching invitations:', error);
+      return { data: null, error: error.message };
+    }
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error in getInvitationsForUser:', error);
+    return { data: null, error: 'Failed to fetch invitations' };
+  }
+}
+
+// Update invitation status
+export async function updateInvitationStatus(id: string, status: 'accepted' | 'rejected') {
+  try {
+    const { data, error } = await supabase
+      .from('collaborators')
+      .update({ 
+        status,
+        updated_at: new Date()
+      })
+      .eq('id', id)
+      .select()
+      .maybeSingle(); // Changed from single() to maybeSingle()
+    
+    if (error) {
+      console.error('Error updating invitation:', error);
+      return { success: false, error: error.message };
+    }
+    
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error in updateInvitationStatus:', error);
+    return { success: false, error: 'Failed to update invitation status' };
   }
 }

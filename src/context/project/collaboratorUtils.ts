@@ -1,181 +1,148 @@
 
-import { CollaboratorFormData } from "@/types";
-import { supabase } from "@/lib/supabase";
+import { Collaborator, CollaboratorFormData, Project } from "@/types";
+import { toast } from "@/components/ui/use-toast";
+import { 
+  sendCollaboratorInvitation,
+  getInvitationsForUser,
+  updateInvitationStatus
+} from "@/lib/supabase";
 
 export const inviteCollaborator = async (
   projectId: string, 
-  projectTitle: string, 
-  data: CollaboratorFormData, 
-  user: any
+  collaboratorData: CollaboratorFormData,
+  projects: Project[]
 ) => {
-  if (!user) {
-    return { 
-      success: false, 
-      error: "Authentication required. You need to sign in to invite collaborators" 
-    };
-  }
-  
   try {
-    // Check if the recipient user exists by email
-    const { data: userExists, error: userError } = await supabase
-      .from('collaborators')
-      .select('*')
-      .eq('email', data.email)
-      .eq('project_id', projectId);
+    // Find the project to get its title
+    const project = projects.find(p => p.id === projectId);
     
-    if (userExists && userExists.length > 0) {
+    if (!project) {
       return { 
-        success: false, 
-        error: "This user has already been invited to this project." 
+        data: null, 
+        error: "Project not found" 
       };
     }
     
-    // Create a new collaborator record with 'pending' status
-    const { data: collaborator, error } = await supabase
-      .from('collaborators')
-      .insert({
-        project_id: projectId,
-        email: data.email,
-        role: data.role,
-        status: 'pending'
-      })
-      .select()
-      .single();
+    const { success, error } = await sendCollaboratorInvitation(
+      projectId, 
+      project.title, 
+      collaboratorData
+    );
     
-    if (error) {
-      console.error("Error creating collaborator:", error);
-      return { 
-        success: false, 
-        error: error.message || "Failed to create invitation." 
-      };
+    if (!success) {
+      toast({
+        title: "Failed to send invitation",
+        description: error,
+        variant: "destructive"
+      });
+      
+      return { data: null, error };
     }
     
-    return { success: true, error: null };
-  } catch (error) {
-    console.error("Error in inviteCollaborator:", error);
-    return { 
-      success: false, 
-      error: "An unexpected error occurred. Please try again." 
+    toast({
+      title: "Invitation sent",
+      description: `Invitation sent to ${collaboratorData.email}`
+    });
+    
+    // Create a client-side representation of the collaborator
+    const newCollaborator: Collaborator = {
+      id: crypto.randomUUID(), // This will be replaced by actual ID from DB
+      projectId,
+      email: collaboratorData.email,
+      role: collaboratorData.role,
+      status: "pending",
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
+    
+    return { data: newCollaborator, error: null };
+  } catch (error) {
+    console.error("Error inviting collaborator:", error);
+    return { data: null, error: "An unexpected error occurred" };
   }
 };
 
-export const acceptInvitation = async (
-  collaboratorId: string, 
-  user: any
-) => {
-  if (!user) {
-    return { 
-      success: false, 
-      error: "Authentication required. You need to sign in to accept invitations" 
-    };
-  }
-  
+export const fetchInvitations = async (email: string) => {
   try {
-    const { data, error } = await supabase
-      .from('collaborators')
-      .update({ status: 'accepted' })
-      .eq('id', collaboratorId)
-      .eq('email', user.email)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error("Error accepting invitation:", error);
-      return { 
-        success: false, 
-        error: error.message || "Failed to accept invitation." 
-      };
-    }
-    
-    return { success: true, error: null };
-  } catch (error) {
-    console.error("Error in acceptInvitation:", error);
-    return { 
-      success: false, 
-      error: "An unexpected error occurred. Please try again." 
-    };
-  }
-};
-
-export const rejectInvitation = async (
-  collaboratorId: string, 
-  user: any
-) => {
-  if (!user) {
-    return { 
-      success: false, 
-      error: "Authentication required. You need to sign in to reject invitations" 
-    };
-  }
-  
-  try {
-    const { data, error } = await supabase
-      .from('collaborators')
-      .update({ status: 'rejected' })
-      .eq('id', collaboratorId)
-      .eq('email', user.email)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error("Error rejecting invitation:", error);
-      return { 
-        success: false, 
-        error: error.message || "Failed to reject invitation." 
-      };
-    }
-    
-    return { success: true, error: null };
-  } catch (error) {
-    console.error("Error in rejectInvitation:", error);
-    return { 
-      success: false, 
-      error: "An unexpected error occurred. Please try again." 
-    };
-  }
-};
-
-export const getInvitations = async (user: any) => {
-  if (!user) {
-    return { 
-      data: null,
-      success: false, 
-      error: "Authentication required to get invitations" 
-    };
-  }
-  
-  try {
-    console.log("Fetching invitations for user:", user.email);
-    const { data, error } = await supabase
-      .from('collaborators')
-      .select(`
-        *,
-        projects:project_id (
-          title,
-          description
-        )
-      `)
-      .eq('email', user.email)
-      .eq('status', 'pending');
+    const { data, error } = await getInvitationsForUser(email);
     
     if (error) {
       console.error("Error fetching invitations:", error);
-      return { 
-        data: null,
-        success: false, 
-        error: error.message || "Failed to get invitations." 
-      };
+      return { data: null, error };
     }
     
-    console.log("Invitations found:", data);
-    return { data, success: true, error: null };
+    if (!data || data.length === 0) {
+      return { data: [], error: null };
+    }
+    
+    // Transform from DB format to our application format
+    const invitations = data.map(item => ({
+      id: item.id,
+      projectId: item.projects.id,
+      projectTitle: item.projects.title,
+      projectDescription: item.projects.description,
+      email: item.email,
+      role: item.role,
+      status: item.status,
+      createdAt: new Date(item.created_at),
+      updatedAt: new Date(item.created_at)
+    }));
+    
+    return { data: invitations, error: null };
   } catch (error) {
-    console.error("Error in getInvitations:", error);
-    return { 
-      data: null,
-      success: false, 
-      error: "An unexpected error occurred. Please try again." 
-    };
+    console.error("Error in fetchInvitations:", error);
+    return { data: null, error: "Failed to fetch invitations" };
+  }
+};
+
+export const acceptInvitation = async (collaboratorId: string) => {
+  try {
+    const { success, error, data } = await updateInvitationStatus(collaboratorId, "accepted");
+    
+    if (!success) {
+      toast({
+        title: "Failed to accept invitation",
+        description: error,
+        variant: "destructive"
+      });
+      
+      return { success: false, error };
+    }
+    
+    toast({
+      title: "Invitation accepted",
+      description: "You have successfully joined the project"
+    });
+    
+    return { success: true, error: null, data };
+  } catch (error) {
+    console.error("Error accepting invitation:", error);
+    return { success: false, error: "An unexpected error occurred" };
+  }
+};
+
+export const rejectInvitation = async (collaboratorId: string) => {
+  try {
+    const { success, error } = await updateInvitationStatus(collaboratorId, "rejected");
+    
+    if (!success) {
+      toast({
+        title: "Failed to reject invitation",
+        description: error,
+        variant: "destructive"
+      });
+      
+      return { success: false, error };
+    }
+    
+    toast({
+      title: "Invitation rejected",
+      description: "You have declined to join the project"
+    });
+    
+    return { success: true, error: null };
+  } catch (error) {
+    console.error("Error rejecting invitation:", error);
+    return { success: false, error: "An unexpected error occurred" };
   }
 };
