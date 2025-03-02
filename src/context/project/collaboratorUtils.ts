@@ -1,5 +1,5 @@
 
-import { Collaborator, CollaboratorFormData } from "@/types";
+import { Collaborator, CollaboratorFormData, Project } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { 
   sendCollaboratorInvitation,
