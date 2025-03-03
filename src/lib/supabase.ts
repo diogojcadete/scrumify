@@ -332,7 +332,7 @@ export async function updateInvitationStatus(id: string, status: 'accepted' | 'r
         })
         .eq('id', id)
         .select()
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.error('Error updating invitation:', error);
