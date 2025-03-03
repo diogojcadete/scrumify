@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { CollaboratorFormData, ProjectFormData, SprintFormData } from '@/types';
 
@@ -135,7 +134,7 @@ export async function getProjectsByCollaborator() {
     // Process the data correctly to extract projects
     const projects = data && data.length > 0
       ? data
-          .filter(item => item.projects != null) // Filter out null project references
+          .filter(item => item && item.projects) // Filter out null items and project references
           .map(item => item.projects)            // Extract the projects object
       : [];
       
@@ -362,4 +361,3 @@ export async function updateInvitationStatus(id: string, status: 'accepted' | 'r
     return { success: false, error: 'Failed to update invitation status', data: null };
   }
 }
-
