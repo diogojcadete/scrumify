@@ -1,4 +1,3 @@
-
 import { Collaborator, CollaboratorFormData, Project } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { 
@@ -81,7 +80,8 @@ export const fetchInvitations = async (email: string) => {
     const invitations = data.map(item => {
       // Check if projects exists and has necessary properties
       const projectId = item.projects?.id || '';
-      const projectTitle = item.projects?.title || "Unknown Project";
+      // Make sure we always have a project title, with a clear fallback
+      const projectTitle = item.projects?.title || "Unnamed Project";
       const projectDescription = item.projects?.description || "";
       
       if (!item.projects) {
@@ -146,7 +146,7 @@ export const acceptInvitation = async (collaboratorId: string) => {
 
 export const rejectInvitation = async (collaboratorId: string) => {
   try {
-    // Reject and delete the invitation
+    // Completely delete the invitation when rejected
     const { success, error } = await updateInvitationStatus(collaboratorId, "rejected");
     
     if (!success) {

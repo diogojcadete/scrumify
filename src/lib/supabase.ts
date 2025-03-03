@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { CollaboratorFormData, ProjectFormData, SprintFormData } from '@/types';
 
@@ -131,10 +132,11 @@ export async function getProjectsByCollaborator() {
       return { data: [], error: error.message };
     }
     
+    // Correctly extract projects from the response data
     const projects = data
       ? data
-          .filter(item => item.projects)
-          .map(item => item.projects)
+          .filter(item => item.projects) // Filter out null project references
+          .map(item => item.projects)    // Extract the projects object
       : [];
       
     return { data: projects, error: null };
@@ -340,6 +342,7 @@ export async function updateInvitationStatus(id: string, status: 'accepted' | 'r
       
       return { success: true, error: null, data };
     } else if (status === 'rejected') {
+      // For rejected invitations, delete them completely from the database
       const { error } = await supabase
         .from('collaborators')
         .delete()
@@ -359,3 +362,4 @@ export async function updateInvitationStatus(id: string, status: 'accepted' | 'r
     return { success: false, error: 'Failed to update invitation status', data: null };
   }
 }
+

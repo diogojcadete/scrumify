@@ -68,7 +68,7 @@ const Dashboard = () => {
     } else {
       navigate("/sign-in");
     }
-  }, [user, navigate, projects]);
+  }, [user, navigate]);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -97,7 +97,7 @@ const Dashboard = () => {
       });
       // Remove the invitation from the local state immediately
       setInvitations(invitations.filter(inv => inv.id !== invitationId));
-      // Navigate to projects list to show the newly added project
+      // Refresh projects to show the newly added project
       navigate("/");
     } else {
       toast({
