@@ -132,11 +132,11 @@ export async function getProjectsByCollaborator() {
       return { data: [], error: error.message };
     }
     
-    // Correctly extract projects from the response data
-    const projects = data
+    // Process the data correctly to extract projects
+    const projects = data && data.length > 0
       ? data
-          .filter(item => item.projects) // Filter out null project references
-          .map(item => item.projects)    // Extract the projects object
+          .filter(item => item.projects != null) // Filter out null project references
+          .map(item => item.projects)            // Extract the projects object
       : [];
       
     return { data: projects, error: null };
