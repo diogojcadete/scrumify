@@ -5,7 +5,8 @@ import {
   sendCollaboratorInvitation,
   getInvitationsForUser,
   updateInvitationStatus,
-  getProjectsByCollaborator
+  getProjectsByCollaborator,
+  getProjectsFromDB
 } from "@/lib/supabase";
 
 export const inviteCollaborator = async (
@@ -109,6 +110,7 @@ export const fetchInvitations = async (email: string) => {
 
 export const acceptInvitation = async (collaboratorId: string) => {
   try {
+    // Accept the invitation (updates status to accepted)
     const { success, error, data } = await updateInvitationStatus(collaboratorId, "accepted");
     
     if (!success) {
@@ -122,7 +124,7 @@ export const acceptInvitation = async (collaboratorId: string) => {
     }
     
     // Fetch the updated projects for the user after accepting invitation
-    const projectsResult = await getProjectsByCollaborator();
+    const projectsResult = await getProjectsFromDB();
     
     if (projectsResult.error) {
       console.error("Error fetching updated projects:", projectsResult.error);
@@ -143,6 +145,7 @@ export const acceptInvitation = async (collaboratorId: string) => {
 
 export const rejectInvitation = async (collaboratorId: string) => {
   try {
+    // Reject and delete the invitation
     const { success, error } = await updateInvitationStatus(collaboratorId, "rejected");
     
     if (!success) {

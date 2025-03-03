@@ -11,16 +11,17 @@ import {
 } from "@/components/ui/card";
 import { useProject } from "@/context/project";
 import { useNavigate } from "react-router-dom";
-import { LogOut, CheckCircle, XCircle, User } from "lucide-react";
+import { LogOut, CheckCircle, XCircle, User, RefreshCw } from "lucide-react";
 import { signOut } from "@/lib/supabase";
 import { toast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Dashboard = () => {
-  const { user, acceptInvitation, rejectInvitation, getInvitations } = useProject();
+  const { user, acceptInvitation, rejectInvitation, getInvitations, projects } = useProject();
   const [invitations, setInvitations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
 
   const fetchInvitations = async () => {
@@ -57,6 +58,7 @@ const Dashboard = () => {
       });
     } finally {
       setIsLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -66,7 +68,7 @@ const Dashboard = () => {
     } else {
       navigate("/sign-in");
     }
-  }, [user, navigate]);
+  }, [user, navigate, projects]);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -79,6 +81,11 @@ const Dashboard = () => {
     } else {
       navigate("/sign-in");
     }
+  };
+
+  const handleRefreshInvitations = () => {
+    setRefreshing(true);
+    fetchInvitations();
   };
 
   const handleAcceptInvitation = async (invitationId) => {
@@ -154,11 +161,22 @@ const Dashboard = () => {
           
           <TabsContent value="invitations">
             <Card>
-              <CardHeader>
-                <CardTitle>Project Invitations</CardTitle>
-                <CardDescription>
-                  Manage invitations to collaborate on projects
-                </CardDescription>
+              <CardHeader className="pb-2 flex flex-row justify-between items-center">
+                <div>
+                  <CardTitle>Project Invitations</CardTitle>
+                  <CardDescription>
+                    Manage invitations to collaborate on projects
+                  </CardDescription>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleRefreshInvitations}
+                  disabled={refreshing || isLoading}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-1 ${refreshing ? 'animate-spin' : ''}`} /> 
+                  Refresh
+                </Button>
               </CardHeader>
               <CardContent>
                 {isLoading ? (

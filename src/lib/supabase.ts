@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { CollaboratorFormData, ProjectFormData, SprintFormData } from '@/types';
 
@@ -38,7 +37,6 @@ export async function getSession() {
   return { session: data.session, error };
 }
 
-// Project database functions
 export async function createProjectInDB(projectData: ProjectFormData, userId: string) {
   const { data, error } = await supabase
     .from('projects')
@@ -54,10 +52,8 @@ export async function createProjectInDB(projectData: ProjectFormData, userId: st
   return { data, error };
 }
 
-// Updated function to get projects - now includes projects where the user is a collaborator
 export async function getProjectsFromDB() {
   try {
-    // First get projects that the user owns
     const { data: ownedProjects, error: ownedError } = await supabase
       .from('projects')
       .select('*')
@@ -68,7 +64,6 @@ export async function getProjectsFromDB() {
       return { data: null, error: ownedError };
     }
     
-    // Then get projects where the user is a collaborator with accepted status
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) {
       return { data: ownedProjects, error: null };
@@ -84,30 +79,29 @@ export async function getProjectsFromDB() {
       
     if (collabError) {
       console.error("Error fetching collaborator projects:", collabError);
-      return { data: ownedProjects, error: null }; // Still return owned projects
+      return { data: ownedProjects, error: null };
     }
     
-    // Extract projects from the collaborator data and merge with owned projects
     const collaboratedProjects = collaboratorProjects
-      .filter(item => item.projects) // Filter out any null projects
-      .map(item => item.projects);
+      ? collaboratorProjects
+          .filter(item => item.projects)
+          .map(item => item.projects)
+      : [];
       
-    // Combine projects, ensuring no duplicates by using project ID as key
     const projectMap = new Map();
     
-    // Add owned projects to map
-    ownedProjects.forEach(project => {
-      projectMap.set(project.id, project);
-    });
+    if (ownedProjects) {
+      ownedProjects.forEach(project => {
+        projectMap.set(project.id, project);
+      });
+    }
     
-    // Add collaborated projects to map (will overwrite if duplicate id)
     collaboratedProjects.forEach(project => {
       if (project && !projectMap.has(project.id)) {
         projectMap.set(project.id, project);
       }
     });
     
-    // Convert map back to array
     const allProjects = Array.from(projectMap.values());
     
     return { data: allProjects, error: null };
@@ -117,7 +111,6 @@ export async function getProjectsFromDB() {
   }
 }
 
-// New function to get projects where the user is a collaborator
 export async function getProjectsByCollaborator() {
   try {
     const { data: userData } = await supabase.auth.getUser();
@@ -138,10 +131,11 @@ export async function getProjectsByCollaborator() {
       return { data: [], error: error.message };
     }
     
-    // Extract just the projects from the response
     const projects = data
-      .filter(item => item.projects) // Filter out any null projects
-      .map(item => item.projects);
+      ? data
+          .filter(item => item.projects)
+          .map(item => item.projects)
+      : [];
       
     return { data: projects, error: null };
   } catch (error) {
@@ -175,9 +169,7 @@ export async function deleteProjectFromDB(id: string) {
   return { error };
 }
 
-// Sprint database functions
 export async function createSprintInDB(sprintData: SprintFormData, projectId: string) {
-  // Create a sprints table first if it doesn't exist
   const { data, error } = await supabase
     .from('sprints')
     .insert({
@@ -250,11 +242,9 @@ export async function deleteSprintFromDB(id: string) {
 
 export async function sendCollaboratorInvitation(projectId: string, projectTitle: string, collaboratorData: CollaboratorFormData) {
   try {
-    // Get current user's email for the invitation
     const { data: userData } = await supabase.auth.getUser();
     const inviterEmail = userData.user?.email || 'A team member';
     
-    // Store invitation in the collaborators table
     const { data: collaborator, error: dbError } = await supabase
       .from('collaborators')
       .insert({
@@ -263,14 +253,13 @@ export async function sendCollaboratorInvitation(projectId: string, projectTitle
         role: collaboratorData.role
       })
       .select()
-      .maybeSingle(); // Changed from single() to maybeSingle() to handle zero or multiple records
+      .maybeSingle();
     
     if (dbError) {
       console.error('Failed to store invitation:', dbError);
       return { success: false, error: dbError.message };
     }
     
-    // Send the actual email via Edge Function
     const { data, error } = await supabase.functions.invoke('send-invitation-email', {
       body: {
         to: collaboratorData.email,
@@ -284,7 +273,6 @@ export async function sendCollaboratorInvitation(projectId: string, projectTitle
     
     if (error) {
       console.error('Failed to send invitation email:', error);
-      // Delete the collaborator record if the email fails
       if (collaborator?.id) {
         await supabase
           .from('collaborators')
@@ -301,7 +289,6 @@ export async function sendCollaboratorInvitation(projectId: string, projectTitle
   }
 }
 
-// Add new function to get invitations for a user
 export async function getInvitationsForUser(email: string) {
   try {
     const { data, error } = await supabase
@@ -333,25 +320,42 @@ export async function getInvitationsForUser(email: string) {
   }
 }
 
-// Update invitation status
 export async function updateInvitationStatus(id: string, status: 'accepted' | 'rejected') {
   try {
-    const { data, error } = await supabase
-      .from('collaborators')
-      .update({ 
-        status,
-        updated_at: new Date()
-      })
-      .eq('id', id)
-      .select()
-      .maybeSingle(); // Changed from single() to maybeSingle()
+    let response;
     
-    if (error) {
-      console.error('Error updating invitation:', error);
-      return { success: false, error: error.message };
+    if (status === 'accepted') {
+      const { data, error } = await supabase
+        .from('collaborators')
+        .update({ 
+          status,
+          updated_at: new Date()
+        })
+        .eq('id', id)
+        .select()
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error updating invitation:', error);
+        return { success: false, error: error.message };
+      }
+      
+      response = { success: true, data };
+    } else if (status === 'rejected') {
+      const { error } = await supabase
+        .from('collaborators')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error deleting invitation:', error);
+        return { success: false, error: error.message };
+      }
+      
+      response = { success: true, data: null };
     }
     
-    return { success: true, data };
+    return response;
   } catch (error) {
     console.error('Error in updateInvitationStatus:', error);
     return { success: false, error: 'Failed to update invitation status' };
