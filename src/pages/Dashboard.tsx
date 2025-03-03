@@ -86,15 +86,20 @@ const Dashboard = () => {
     if (result.success) {
       toast({
         title: "Success",
-        description: "Invitation accepted successfully",
+        description: "Invitation accepted successfully. The project is now available in your projects list.",
       });
-      fetchInvitations();
+      // Remove the invitation from the local state immediately
+      setInvitations(invitations.filter(inv => inv.id !== invitationId));
+      // Navigate to projects list to show the newly added project
+      navigate("/");
     } else {
       toast({
         title: "Error",
         description: result.error || "Failed to accept invitation",
         variant: "destructive"
       });
+      // Refresh invitations to get current state
+      fetchInvitations();
     }
   };
 
@@ -105,13 +110,16 @@ const Dashboard = () => {
         title: "Success",
         description: "Invitation rejected successfully",
       });
-      fetchInvitations();
+      // Remove the invitation from the local state immediately
+      setInvitations(invitations.filter(inv => inv.id !== invitationId));
     } else {
       toast({
         title: "Error",
         description: result.error || "Failed to reject invitation",
         variant: "destructive"
       });
+      // Refresh invitations to get current state
+      fetchInvitations();
     }
   };
 

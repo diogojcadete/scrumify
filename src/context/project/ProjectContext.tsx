@@ -767,6 +767,8 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       );
       
       setCollaborators(updatedCollaborators);
+      
+      fetchProjectsData();
     }
     
     return result;

@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { CollaboratorFormData, ProjectFormData, SprintFormData } from '@/types';
 
@@ -53,13 +54,100 @@ export async function createProjectInDB(projectData: ProjectFormData, userId: st
   return { data, error };
 }
 
+// Updated function to get projects - now includes projects where the user is a collaborator
 export async function getProjectsFromDB() {
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*')
-    .order('created_at', { ascending: false });
+  try {
+    // First get projects that the user owns
+    const { data: ownedProjects, error: ownedError } = await supabase
+      .from('projects')
+      .select('*')
+      .order('created_at', { ascending: false });
+      
+    if (ownedError) {
+      console.error("Error fetching owned projects:", ownedError);
+      return { data: null, error: ownedError };
+    }
     
-  return { data, error };
+    // Then get projects where the user is a collaborator with accepted status
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      return { data: ownedProjects, error: null };
+    }
+    
+    const { data: collaboratorProjects, error: collabError } = await supabase
+      .from('collaborators')
+      .select(`
+        projects (*)
+      `)
+      .eq('email', userData.user.email)
+      .eq('status', 'accepted');
+      
+    if (collabError) {
+      console.error("Error fetching collaborator projects:", collabError);
+      return { data: ownedProjects, error: null }; // Still return owned projects
+    }
+    
+    // Extract projects from the collaborator data and merge with owned projects
+    const collaboratedProjects = collaboratorProjects
+      .filter(item => item.projects) // Filter out any null projects
+      .map(item => item.projects);
+      
+    // Combine projects, ensuring no duplicates by using project ID as key
+    const projectMap = new Map();
+    
+    // Add owned projects to map
+    ownedProjects.forEach(project => {
+      projectMap.set(project.id, project);
+    });
+    
+    // Add collaborated projects to map (will overwrite if duplicate id)
+    collaboratedProjects.forEach(project => {
+      if (project && !projectMap.has(project.id)) {
+        projectMap.set(project.id, project);
+      }
+    });
+    
+    // Convert map back to array
+    const allProjects = Array.from(projectMap.values());
+    
+    return { data: allProjects, error: null };
+  } catch (error) {
+    console.error("Error in getProjectsFromDB:", error);
+    return { data: null, error: "Failed to fetch projects" };
+  }
+}
+
+// New function to get projects where the user is a collaborator
+export async function getProjectsByCollaborator() {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      return { data: [], error: "User not authenticated" };
+    }
+    
+    const { data, error } = await supabase
+      .from('collaborators')
+      .select(`
+        projects (*)
+      `)
+      .eq('email', userData.user.email)
+      .eq('status', 'accepted');
+      
+    if (error) {
+      console.error("Error fetching collaborator projects:", error);
+      return { data: [], error: error.message };
+    }
+    
+    // Extract just the projects from the response
+    const projects = data
+      .filter(item => item.projects) // Filter out any null projects
+      .map(item => item.projects);
+      
+    return { data: projects, error: null };
+  } catch (error) {
+    console.error("Error in getProjectsByCollaborator:", error);
+    return { data: [], error: "Failed to fetch collaborator projects" };
+  }
 }
 
 export async function updateProjectInDB(id: string, projectData: ProjectFormData) {

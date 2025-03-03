@@ -4,7 +4,8 @@ import { toast } from "@/components/ui/use-toast";
 import { 
   sendCollaboratorInvitation,
   getInvitationsForUser,
-  updateInvitationStatus
+  updateInvitationStatus,
+  getProjectsByCollaborator
 } from "@/lib/supabase";
 
 export const inviteCollaborator = async (
@@ -120,12 +121,20 @@ export const acceptInvitation = async (collaboratorId: string) => {
       return { success: false, error };
     }
     
+    // Fetch the updated projects for the user after accepting invitation
+    const projectsResult = await getProjectsByCollaborator();
+    
+    if (projectsResult.error) {
+      console.error("Error fetching updated projects:", projectsResult.error);
+      // Still show success message as the invitation was accepted
+    }
+    
     toast({
       title: "Invitation accepted",
       description: "You have successfully joined the project"
     });
     
-    return { success: true, error: null, data };
+    return { success: true, error: null, data, projectsData: projectsResult.data };
   } catch (error) {
     console.error("Error accepting invitation:", error);
     return { success: false, error: "An unexpected error occurred" };
