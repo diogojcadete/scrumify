@@ -124,6 +124,7 @@ export const acceptInvitation = async (collaboratorId: string) => {
     }
     
     // Fetch the updated projects for the user after accepting invitation
+    // This will now include projects where the user is a collaborator with status "accepted"
     const projectsResult = await getProjectsFromDB();
     
     if (projectsResult.error) {

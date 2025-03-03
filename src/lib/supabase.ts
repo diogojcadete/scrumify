@@ -322,8 +322,6 @@ export async function getInvitationsForUser(email: string) {
 
 export async function updateInvitationStatus(id: string, status: 'accepted' | 'rejected') {
   try {
-    let response;
-    
     if (status === 'accepted') {
       const { data, error } = await supabase
         .from('collaborators')
@@ -333,14 +331,14 @@ export async function updateInvitationStatus(id: string, status: 'accepted' | 'r
         })
         .eq('id', id)
         .select()
-        .maybeSingle();
+        .single();
       
       if (error) {
         console.error('Error updating invitation:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error.message, data: null };
       }
       
-      response = { success: true, data };
+      return { success: true, error: null, data };
     } else if (status === 'rejected') {
       const { error } = await supabase
         .from('collaborators')
@@ -349,15 +347,15 @@ export async function updateInvitationStatus(id: string, status: 'accepted' | 'r
       
       if (error) {
         console.error('Error deleting invitation:', error);
-        return { success: false, error: error.message };
+        return { success: false, error: error.message, data: null };
       }
       
-      response = { success: true, data: null };
+      return { success: true, error: null, data: null };
     }
     
-    return response;
+    return { success: false, error: "Invalid status", data: null };
   } catch (error) {
     console.error('Error in updateInvitationStatus:', error);
-    return { success: false, error: 'Failed to update invitation status' };
+    return { success: false, error: 'Failed to update invitation status', data: null };
   }
 }
