@@ -66,6 +66,7 @@ export async function getProjectsFromDB() {
     if (collaboratorProjects && collaboratorProjects.length > 0) {
       collaboratorProjects.forEach(item => {
         if (item && item.projects) {
+          // Fix: Access the projects object directly, not as an array
           const project = item.projects;
           if (project && !projectMap.has(project.id)) {
             projectMap.set(project.id, project);
