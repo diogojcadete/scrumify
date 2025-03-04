@@ -1,3 +1,4 @@
+
 import { ProjectFormData } from '@/types';
 import { supabase } from './client';
 
@@ -68,7 +69,6 @@ export async function getProjectsFromDB() {
         // Make sure that item and project_id exist
         if (item && item.project_id) {
           // Get the project data from the nested projects object
-          // In Supabase, when we join tables, the joined table comes as a single object, not an array
           const project = item.projects;
           
           // Only add to map if project exists and has an id property
