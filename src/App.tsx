@@ -4,12 +4,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { ProjectProvider } from "./context/project";
+import { ProjectProvider } from "./context/ProjectContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
-import Dashboard from "./pages/Dashboard";
 import { useState, useEffect } from "react";
 import { getSession, supabase } from "./lib/supabase";
 
@@ -59,16 +58,6 @@ const App = () => {
                 element={
                   session ? (
                     <Index />
-                  ) : (
-                    <Navigate to="/sign-in" replace />
-                  )
-                }
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  session ? (
-                    <Dashboard />
                   ) : (
                     <Navigate to="/sign-in" replace />
                   )
