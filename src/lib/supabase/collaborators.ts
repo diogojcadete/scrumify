@@ -101,7 +101,11 @@ export async function updateInvitationStatus(id: string, status: 'accepted' | 'r
           projects (
             id,
             title,
-            description
+            description,
+            end_goal,
+            owner_id,
+            created_at,
+            updated_at
           )
         `)
         .maybeSingle();
@@ -111,7 +115,22 @@ export async function updateInvitationStatus(id: string, status: 'accepted' | 'r
         return { success: false, error: error.message, data: null };
       }
       
-      return { success: true, error: null, data };
+      // Fetch all user's projects to return updated list
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (projectsError) {
+        console.error("Error fetching projects after accepting invitation:", projectsError);
+      }
+      
+      return { 
+        success: true, 
+        error: null, 
+        data,
+        projectsData: projectsError ? null : projectsData
+      };
     } else if (status === 'rejected') {
       // For rejected invitations, delete them completely from the database
       const { error } = await supabase

@@ -1,4 +1,3 @@
-
 import { ProjectFormData } from '@/types';
 import { supabase } from './client';
 
@@ -66,11 +65,14 @@ export async function getProjectsFromDB() {
     // Add collaborated projects to the map if they exist
     if (collaboratorProjects && collaboratorProjects.length > 0) {
       collaboratorProjects.forEach(item => {
-        if (item && item.project_id && item.projects) {
-          // When using a nested select with Supabase, the projects field contains 
-          // a single project object, not an array
+        // Make sure that item and project_id exist
+        if (item && item.project_id) {
+          // Get the project data from the nested projects object
+          // In Supabase, when we join tables, the joined table comes as a single object, not an array
           const project = item.projects;
-          if (project && typeof project === 'object' && project.id && !projectMap.has(project.id)) {
+          
+          // Only add to map if project exists and has an id property
+          if (project && typeof project === 'object' && project.id) {
             projectMap.set(project.id, project);
           }
         }
