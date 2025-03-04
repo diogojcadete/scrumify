@@ -92,7 +92,18 @@ export async function updateInvitationStatus(id: string, status: 'accepted' | 'r
           updated_at: new Date()
         })
         .eq('id', id)
-        .select()
+        .select(`
+          id,
+          project_id,
+          email,
+          role,
+          status,
+          projects (
+            id,
+            title,
+            description
+          )
+        `)
         .maybeSingle();
       
       if (error) {

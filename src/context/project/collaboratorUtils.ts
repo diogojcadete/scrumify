@@ -101,10 +101,13 @@ export const fetchInvitations = async (email: string) => {
 
 export const acceptInvitation = async (collaboratorId: string) => {
   try {
+    console.log("Accepting invitation with ID:", collaboratorId);
+    
     // Accept the invitation (updates status to accepted)
     const { success, error, data } = await updateInvitationStatus(collaboratorId, "accepted");
     
     if (!success) {
+      console.error("Failed to accept invitation:", error);
       toast({
         title: "Failed to accept invitation",
         description: error,
@@ -114,12 +117,16 @@ export const acceptInvitation = async (collaboratorId: string) => {
       return { success: false, error };
     }
     
-    // Fetch the updated projects list for the user after accepting invitation
+    console.log("Invitation accepted, data:", data);
+    
+    // Immediately after accepting, fetch the updated projects list
     const projectsResult = await getProjectsFromDB();
     
     if (projectsResult.error) {
       console.error("Error fetching updated projects:", projectsResult.error);
       // Still show success message as the invitation was accepted
+    } else {
+      console.log("Updated projects after acceptance:", projectsResult.data);
     }
     
     toast({

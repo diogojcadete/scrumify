@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -89,43 +88,71 @@ const Dashboard = () => {
   };
 
   const handleAcceptInvitation = async (invitationId) => {
-    const result = await acceptInvitation(invitationId);
-    if (result.success) {
-      toast({
-        title: "Success",
-        description: "Invitation accepted successfully. The project is now available in your projects list.",
-      });
-      // Remove the invitation from the local state immediately
+    try {
+      console.log("Accepting invitation:", invitationId);
+      // Optimistically remove the invitation from the UI
       setInvitations(invitations.filter(inv => inv.id !== invitationId));
-      // Refresh projects to show the newly added project
-      navigate("/");
-    } else {
+      
+      const result = await acceptInvitation(invitationId);
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Invitation accepted successfully. The project is now available in your projects list.",
+        });
+        
+        // Redirect to the main page to show the newly added project
+        setTimeout(() => {
+          navigate("/");
+        }, 1000);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to accept invitation",
+          variant: "destructive"
+        });
+        // Re-fetch invitations to get the current state
+        fetchInvitations();
+      }
+    } catch (error) {
+      console.error("Error in handleAcceptInvitation:", error);
       toast({
         title: "Error",
-        description: result.error || "Failed to accept invitation",
+        description: "An unexpected error occurred",
         variant: "destructive"
       });
-      // Refresh invitations to get current state
       fetchInvitations();
     }
   };
 
   const handleRejectInvitation = async (invitationId) => {
-    const result = await rejectInvitation(invitationId);
-    if (result.success) {
-      toast({
-        title: "Success",
-        description: "Invitation rejected successfully",
-      });
-      // Remove the invitation from the local state immediately
+    try {
+      // Optimistically remove the invitation from the UI
       setInvitations(invitations.filter(inv => inv.id !== invitationId));
-    } else {
+      
+      const result = await rejectInvitation(invitationId);
+      
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Invitation rejected successfully",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to reject invitation",
+          variant: "destructive"
+        });
+        // Re-fetch invitations to get the current state
+        fetchInvitations();
+      }
+    } catch (error) {
+      console.error("Error in handleRejectInvitation:", error);
       toast({
         title: "Error",
-        description: result.error || "Failed to reject invitation",
+        description: "An unexpected error occurred",
         variant: "destructive"
       });
-      // Refresh invitations to get current state
       fetchInvitations();
     }
   };

@@ -41,6 +41,7 @@ export async function getProjectsFromDB() {
     const { data: collaboratorProjects, error: collabError } = await supabase
       .from('collaborators')
       .select(`
+        id,
         project_id,
         projects (*)
       `)
@@ -66,11 +67,10 @@ export async function getProjectsFromDB() {
     if (collaboratorProjects && collaboratorProjects.length > 0) {
       collaboratorProjects.forEach(item => {
         if (item && item.project_id && item.projects) {
-          // TypeScript fix: Explicitly cast projects to a single project object
-          // This is because when using a nested select with Supabase,
-          // the nested object uses the table name as the property name
-          const project = item.projects as any;
-          if (project && typeof project === 'object' && 'id' in project && !projectMap.has(project.id)) {
+          // When using a nested select with Supabase, the projects field contains 
+          // a single project object, not an array
+          const project = item.projects;
+          if (project && typeof project === 'object' && project.id && !projectMap.has(project.id)) {
             projectMap.set(project.id, project);
           }
         }
@@ -97,6 +97,7 @@ export async function getProjectsByCollaborator() {
     const { data, error } = await supabase
       .from('collaborators')
       .select(`
+        id,
         project_id,
         projects (*)
       `)
@@ -110,9 +111,7 @@ export async function getProjectsByCollaborator() {
     
     // Process the data correctly to extract projects
     const projects = data && data.length > 0
-      ? data
-          .filter(item => item && item.projects) // Filter out null items
-          .map(item => item.projects)            // Extract the projects object
+      ? data.map(item => item.projects) // Extract the projects object
       : [];
       
     return { data: projects, error: null };
