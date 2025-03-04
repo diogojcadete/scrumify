@@ -65,11 +65,12 @@ export async function getProjectsFromDB() {
     // Add collaborated projects to the map if they exist
     if (collaboratorProjects && collaboratorProjects.length > 0) {
       collaboratorProjects.forEach(item => {
-        if (item && item.projects) {
-          // Extract the project from the join result
-          // TypeScript fix: Ensure we're treating projects as an object, not an array
-          const project = item.projects;
-          if (project && project.id && !projectMap.has(project.id)) {
+        if (item && item.project_id && item.projects) {
+          // TypeScript fix: Explicitly cast projects to a single project object
+          // This is because when using a nested select with Supabase,
+          // the nested object uses the table name as the property name
+          const project = item.projects as any;
+          if (project && typeof project === 'object' && 'id' in project && !projectMap.has(project.id)) {
             projectMap.set(project.id, project);
           }
         }
