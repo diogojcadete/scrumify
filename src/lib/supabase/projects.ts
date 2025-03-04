@@ -66,9 +66,10 @@ export async function getProjectsFromDB() {
     if (collaboratorProjects && collaboratorProjects.length > 0) {
       collaboratorProjects.forEach(item => {
         if (item && item.projects) {
-          // Fix: Access the projects object directly, not as an array
+          // Extract the project from the join result
+          // TypeScript fix: Ensure we're treating projects as an object, not an array
           const project = item.projects;
-          if (project && !projectMap.has(project.id)) {
+          if (project && project.id && !projectMap.has(project.id)) {
             projectMap.set(project.id, project);
           }
         }
