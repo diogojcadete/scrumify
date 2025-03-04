@@ -1,3 +1,4 @@
+
 import { Collaborator, CollaboratorFormData, Project } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { 
@@ -10,23 +11,13 @@ import {
 
 export const inviteCollaborator = async (
   projectId: string, 
-  collaboratorData: CollaboratorFormData,
-  projects: Project[]
+  projectTitle: string,
+  collaboratorData: CollaboratorFormData
 ) => {
   try {
-    // Find the project to get its title
-    const project = projects.find(p => p.id === projectId);
-    
-    if (!project) {
-      return { 
-        data: null, 
-        error: "Project not found" 
-      };
-    }
-    
     const { success, error } = await sendCollaboratorInvitation(
       projectId, 
-      project.title, 
+      projectTitle, 
       collaboratorData
     );
     
@@ -37,7 +28,7 @@ export const inviteCollaborator = async (
         variant: "destructive"
       });
       
-      return { data: null, error };
+      return { success: false, error };
     }
     
     toast({
@@ -56,10 +47,10 @@ export const inviteCollaborator = async (
       updatedAt: new Date()
     };
     
-    return { data: newCollaborator, error: null };
+    return { success: true, error: null, data: newCollaborator };
   } catch (error) {
     console.error("Error inviting collaborator:", error);
-    return { data: null, error: "An unexpected error occurred" };
+    return { success: false, error: "An unexpected error occurred" };
   }
 };
 
@@ -123,8 +114,7 @@ export const acceptInvitation = async (collaboratorId: string) => {
       return { success: false, error };
     }
     
-    // Fetch the updated projects for the user after accepting invitation
-    // This will now include projects where the user is a collaborator with status "accepted"
+    // Fetch the updated projects list for the user after accepting invitation
     const projectsResult = await getProjectsFromDB();
     
     if (projectsResult.error) {
@@ -137,7 +127,12 @@ export const acceptInvitation = async (collaboratorId: string) => {
       description: "You have successfully joined the project"
     });
     
-    return { success: true, error: null, data, projectsData: projectsResult.data };
+    return { 
+      success: true, 
+      error: null, 
+      data, 
+      projectsData: projectsResult.data 
+    };
   } catch (error) {
     console.error("Error accepting invitation:", error);
     return { success: false, error: "An unexpected error occurred" };

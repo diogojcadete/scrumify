@@ -662,27 +662,13 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { success: false, error: "Project not found" };
     }
     
-    if (project.ownerId !== user.id) {
-      toast({
-        title: "Permission denied",
-        description: "Only the project owner can invite collaborators.",
-        variant: "destructive"
-      });
-      return { success: false, error: "Permission denied" };
-    }
-    
     const result = await inviteCollaboratorUtil(
       projectId, 
-      data,
-      projects
+      projectTitle,
+      data
     );
     
-    if (result.error) {
-      toast({
-        title: "Error",
-        description: result.error,
-        variant: "destructive"
-      });
+    if (!result.success) {
       return { success: false, error: result.error };
     }
     
@@ -699,22 +685,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { success: false, error: "Collaborator already invited" };
     }
     
-    const newCollaborator: Collaborator = {
-      id: uuidv4(),
-      projectId,
-      email: data.email,
-      role: data.role,
-      status: "pending",
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    setCollaborators([...collaborators, newCollaborator]);
-    
-    toast({
-      title: "Invitation sent",
-      description: `Invitation has been sent to ${data.email}.`,
-    });
+    if (result.data) {
+      setCollaborators([...collaborators, result.data]);
+    }
     
     return { success: true, error: null };
   };
@@ -768,7 +741,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       setCollaborators(updatedCollaborators);
       
-      fetchProjectsData();
+      if (result.projectsData) {
+        setProjects(result.projectsData);
+      } else {
+        fetchProjectsData();
+      }
     }
     
     return result;
