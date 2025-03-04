@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { Project, Sprint, Column, Task, BacklogItem, ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface ProjectContextType {
   projects: Project[];
@@ -11,36 +12,34 @@ interface ProjectContextType {
   sprints: Sprint[];
   columns: Column[];
   backlogItems: BacklogItem[];
-  createProject: (data: ProjectFormData) => void;
-  updateProject: (id: string, data: ProjectFormData) => void;
-  deleteProject: (id: string) => void;
+  isLoading: boolean;
+  createProject: (data: ProjectFormData) => Promise<void>;
+  updateProject: (id: string, data: ProjectFormData) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
   selectProject: (id: string) => void;
-  createSprint: (data: SprintFormData) => void;
-  updateSprint: (id: string, data: SprintFormData) => void;
-  completeSprint: (id: string) => void;
-  createColumn: (sprintId: string, title: string) => void;
-  deleteColumn: (id: string) => void;
-  createTask: (sprintId: string, columnId: string, data: TaskFormData) => void;
-  updateTask: (id: string, data: TaskFormData) => void;
-  deleteTask: (id: string) => void;
-  moveTask: (taskId: string, sourceColumnId: string, destinationColumnId: string) => void;
-  createBacklogItem: (data: BacklogItemFormData) => void;
-  updateBacklogItem: (id: string, data: BacklogItemFormData) => void;
-  deleteBacklogItem: (id: string) => void;
-  moveBacklogItemToSprint: (backlogItemId: string, sprintId: string) => void;
+  createSprint: (data: SprintFormData) => Promise<void>;
+  updateSprint: (id: string, data: SprintFormData) => Promise<void>;
+  completeSprint: (id: string) => Promise<void>;
+  createColumn: (sprintId: string, title: string) => Promise<void>;
+  deleteColumn: (id: string) => Promise<void>;
+  createTask: (sprintId: string, columnId: string, data: TaskFormData) => Promise<void>;
+  updateTask: (id: string, data: TaskFormData) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  moveTask: (taskId: string, sourceColumnId: string, destinationColumnId: string) => Promise<void>;
+  createBacklogItem: (data: BacklogItemFormData) => Promise<void>;
+  updateBacklogItem: (id: string, data: BacklogItemFormData) => Promise<void>;
+  deleteBacklogItem: (id: string) => Promise<void>;
+  moveBacklogItemToSprint: (backlogItemId: string, sprintId: string) => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [sprints, setSprints] = useState<Sprint[]>([]);
-  const [columns, setColumns] = useState<Column[]>([]);
-  const [backlogItems, setBacklogItems] = useState<BacklogItem[]>([]);
   const [user, setUser] = useState<any>(null);
+  const queryClient = useQueryClient();
 
-  // Set up auth listener and load user data
+  // Set up auth listener
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -54,11 +53,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setUser(session.user);
       } else {
         setUser(null);
-        // Clear data when user signs out
-        setProjects([]);
-        setSprints([]);
-        setColumns([]);
-        setBacklogItems([]);
         setSelectedProject(null);
       }
     });
@@ -68,135 +62,644 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, []);
 
-  // Load data from localStorage when user is authenticated
-  useEffect(() => {
-    if (!user) return;
+  // Query functions
+  const fetchProjects = async () => {
+    if (!user) return [];
     
-    const userIdPrefix = `user_${user.id}_`;
-    const storedProjects = localStorage.getItem(`${userIdPrefix}projects`);
-    const storedSprints = localStorage.getItem(`${userIdPrefix}sprints`);
-    const storedColumns = localStorage.getItem(`${userIdPrefix}columns`);
-    const storedBacklogItems = localStorage.getItem(`${userIdPrefix}backlogItems`);
-
-    if (storedProjects) setProjects(JSON.parse(storedProjects));
-    if (storedSprints) setSprints(JSON.parse(storedSprints));
-    if (storedColumns) setColumns(JSON.parse(storedColumns));
-    if (storedBacklogItems) setBacklogItems(JSON.parse(storedBacklogItems));
-  }, [user]);
-
-  // Save data to localStorage whenever it changes
-  useEffect(() => {
-    if (!user) return;
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*')
+      .order('created_at', { ascending: false });
     
-    const userIdPrefix = `user_${user.id}_`;
-    localStorage.setItem(`${userIdPrefix}projects`, JSON.stringify(projects));
-  }, [projects, user]);
-
-  useEffect(() => {
-    if (!user) return;
-    
-    const userIdPrefix = `user_${user.id}_`;
-    localStorage.setItem(`${userIdPrefix}sprints`, JSON.stringify(sprints));
-  }, [sprints, user]);
-
-  useEffect(() => {
-    if (!user) return;
-    
-    const userIdPrefix = `user_${user.id}_`;
-    localStorage.setItem(`${userIdPrefix}columns`, JSON.stringify(columns));
-  }, [columns, user]);
-
-  useEffect(() => {
-    if (!user) return;
-    
-    const userIdPrefix = `user_${user.id}_`;
-    localStorage.setItem(`${userIdPrefix}backlogItems`, JSON.stringify(backlogItems));
-  }, [backlogItems, user]);
-
-  // Create a new project
-  const createProject = (data: ProjectFormData) => {
-    if (!user) {
+    if (error) {
       toast({
-        title: "Authentication required",
-        description: "You need to sign in to create a project",
+        title: "Error fetching projects",
+        description: error.message,
         variant: "destructive"
       });
-      return;
+      return [];
     }
     
-    const newProject: Project = {
-      id: uuidv4(),
-      ...data,
-      createdAt: new Date(),
-      updatedAt: new Date()
+    return data.map(project => ({
+      ...project,
+      createdAt: new Date(project.created_at),
+      updatedAt: new Date(project.updated_at)
+    }));
+  };
+
+  const fetchSprints = async () => {
+    if (!user) return [];
+    
+    const { data, error } = await supabase
+      .from('sprints')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      toast({
+        title: "Error fetching sprints",
+        description: error.message,
+        variant: "destructive"
+      });
+      return [];
+    }
+    
+    return data.map(sprint => ({
+      ...sprint,
+      projectId: sprint.project_id,
+      startDate: new Date(sprint.start_date),
+      endDate: new Date(sprint.end_date),
+      isCompleted: sprint.is_completed,
+      createdAt: new Date(sprint.created_at),
+      updatedAt: new Date(sprint.updated_at)
+    }));
+  };
+
+  const fetchColumns = async () => {
+    if (!user) return [];
+    
+    const { data, error } = await supabase
+      .from('columns')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      toast({
+        title: "Error fetching columns",
+        description: error.message,
+        variant: "destructive"
+      });
+      return [];
+    }
+    
+    return data.map(column => ({
+      ...column,
+      createdAt: new Date(column.created_at),
+      updatedAt: new Date(column.updated_at),
+      tasks: []
+    }));
+  };
+
+  const fetchTasks = async () => {
+    if (!user) return [];
+    
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      toast({
+        title: "Error fetching tasks",
+        description: error.message,
+        variant: "destructive"
+      });
+      return [];
+    }
+    
+    return data.map(task => ({
+      ...task,
+      sprintId: task.sprint_id,
+      columnId: task.column_id,
+      storyPoints: task.story_points,
+      createdAt: new Date(task.created_at),
+      updatedAt: new Date(task.updated_at)
+    }));
+  };
+
+  const fetchBacklogItems = async () => {
+    if (!user) return [];
+    
+    const { data, error } = await supabase
+      .from('backlog_items')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      toast({
+        title: "Error fetching backlog items",
+        description: error.message,
+        variant: "destructive"
+      });
+      return [];
+    }
+    
+    return data.map(item => ({
+      ...item,
+      projectId: item.project_id,
+      storyPoints: item.story_points,
+      createdAt: new Date(item.created_at),
+      updatedAt: new Date(item.updated_at)
+    }));
+  };
+
+  // Queries
+  const {
+    data: projects = [],
+    isLoading: isProjectsLoading
+  } = useQuery({
+    queryKey: ['projects'],
+    queryFn: fetchProjects,
+    enabled: !!user
+  });
+
+  const {
+    data: sprints = [],
+    isLoading: isSprintsLoading
+  } = useQuery({
+    queryKey: ['sprints'],
+    queryFn: fetchSprints,
+    enabled: !!user
+  });
+
+  const {
+    data: columnsData = [],
+    isLoading: isColumnsLoading
+  } = useQuery({
+    queryKey: ['columns'],
+    queryFn: fetchColumns,
+    enabled: !!user
+  });
+
+  const {
+    data: tasks = [],
+    isLoading: isTasksLoading
+  } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: fetchTasks,
+    enabled: !!user
+  });
+
+  const {
+    data: backlogItems = [],
+    isLoading: isBacklogItemsLoading
+  } = useQuery({
+    queryKey: ['backlogItems'],
+    queryFn: fetchBacklogItems,
+    enabled: !!user
+  });
+
+  // Combine tasks with columns
+  const columns = columnsData.map(column => ({
+    ...column,
+    tasks: tasks.filter(task => task.columnId === column.id)
+  }));
+
+  const isLoading = isProjectsLoading || isSprintsLoading || isColumnsLoading || isTasksLoading || isBacklogItemsLoading;
+
+  // Mutations
+  const createProjectMutation = useMutation({
+    mutationFn: async (data: ProjectFormData) => {
+      if (!user) throw new Error("You must be signed in to create a project");
+      
+      const { data: newProject, error } = await supabase
+        .from('projects')
+        .insert({
+          owner_id: user.id,
+          title: data.title,
+          description: data.description,
+          end_goal: data.endGoal
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return newProject;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error creating project",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updateProjectMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string, data: ProjectFormData }) => {
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          title: data.title,
+          description: data.description,
+          end_goal: data.endGoal,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating project",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+      queryClient.invalidateQueries({ queryKey: ['backlogItems'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error deleting project",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const createSprintMutation = useMutation({
+    mutationFn: async ({ projectId, data }: { projectId: string, data: SprintFormData }) => {
+      const { error } = await supabase
+        .from('sprints')
+        .insert({
+          project_id: projectId,
+          title: data.title,
+          description: data.description,
+          start_date: data.startDate.toISOString(),
+          end_date: data.endDate.toISOString(),
+          is_completed: false
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error creating sprint",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updateSprintMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string, data: SprintFormData }) => {
+      const { error } = await supabase
+        .from('sprints')
+        .update({
+          title: data.title,
+          description: data.description,
+          start_date: data.startDate.toISOString(),
+          end_date: data.endDate.toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating sprint",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const completeSprintMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('sprints')
+        .update({
+          is_completed: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sprints'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error completing sprint",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const createColumnMutation = useMutation({
+    mutationFn: async (title: string) => {
+      const { data, error } = await supabase
+        .from('columns')
+        .insert({
+          title
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['columns'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error creating column",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const deleteColumnMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('columns')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['columns'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error deleting column",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: async ({ sprintId, columnId, data }: { sprintId: string, columnId: string, data: TaskFormData }) => {
+      const { error } = await supabase
+        .from('tasks')
+        .insert({
+          sprint_id: sprintId,
+          column_id: columnId,
+          title: data.title,
+          description: data.description,
+          priority: data.priority,
+          assignee: data.assignee,
+          story_points: data.storyPoints
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error creating task",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string, data: TaskFormData }) => {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          title: data.title,
+          description: data.description,
+          priority: data.priority,
+          assignee: data.assignee,
+          story_points: data.storyPoints,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating task",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error deleting task",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const moveTaskMutation = useMutation({
+    mutationFn: async ({ taskId, destinationColumnId }: { taskId: string, destinationColumnId: string }) => {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          column_id: destinationColumnId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', taskId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error moving task",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const createBacklogItemMutation = useMutation({
+    mutationFn: async ({ projectId, data }: { projectId: string, data: BacklogItemFormData }) => {
+      const { error } = await supabase
+        .from('backlog_items')
+        .insert({
+          project_id: projectId,
+          title: data.title,
+          description: data.description,
+          priority: data.priority,
+          story_points: data.storyPoints
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['backlogItems'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error creating backlog item",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updateBacklogItemMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string, data: BacklogItemFormData }) => {
+      const { error } = await supabase
+        .from('backlog_items')
+        .update({
+          title: data.title,
+          description: data.description,
+          priority: data.priority,
+          story_points: data.storyPoints,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['backlogItems'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating backlog item",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const deleteBacklogItemMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('backlog_items')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['backlogItems'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error deleting backlog item",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Function to create default columns if they don't exist
+  useEffect(() => {
+    const createDefaultColumns = async () => {
+      if (!user || isLoading) return;
+      
+      const defaultColumns = ["TO DO", "IN PROGRESS", "DONE"];
+      const existingColumnTitles = columns.map(col => col.title);
+      
+      for (const title of defaultColumns) {
+        if (!existingColumnTitles.includes(title)) {
+          await createColumnMutation.mutateAsync(title);
+        }
+      }
     };
     
-    setProjects([...projects, newProject]);
-    setSelectedProject(newProject);
-    
-    toast({
-      title: "Project created",
-      description: `${data.title} has been created successfully.`,
-    });
-  };
+    createDefaultColumns();
+  }, [user, isLoading, columns]);
 
-  // Update an existing project
-  const updateProject = (id: string, data: ProjectFormData) => {
-    const updatedProjects = projects.map(project => 
-      project.id === id 
-        ? { ...project, ...data, updatedAt: new Date() } 
-        : project
-    );
-    
-    setProjects(updatedProjects);
-    
-    if (selectedProject && selectedProject.id === id) {
-      setSelectedProject({ ...selectedProject, ...data, updatedAt: new Date() });
+  // Context functions
+  const createProject = async (data: ProjectFormData) => {
+    try {
+      const newProject = await createProjectMutation.mutateAsync(data);
+      toast({
+        title: "Project created",
+        description: `${data.title} has been created successfully.`,
+      });
+      setSelectedProject(newProject);
+    } catch (error) {
+      console.error(error);
     }
-    
-    toast({
-      title: "Project updated",
-      description: `${data.title} has been updated successfully.`,
-    });
   };
 
-  // Delete a project and all associated data
-  const deleteProject = (id: string) => {
-    const projectToDelete = projects.find(project => project.id === id);
-    if (!projectToDelete) return;
-    
-    // Remove the project
-    setProjects(projects.filter(project => project.id !== id));
-    
-    // Remove all sprints associated with this project
-    const projectSprints = sprints.filter(sprint => sprint.projectId === id);
-    const sprintIds = projectSprints.map(sprint => sprint.id);
-    
-    setSprints(sprints.filter(sprint => sprint.projectId !== id));
-    
-    // Remove all tasks associated with this project's sprints
-    setColumns(
-      columns.map(column => ({
-        ...column,
-        tasks: column.tasks.filter(task => !sprintIds.includes(task.sprintId))
-      }))
-    );
-    
-    // Remove all backlog items associated with this project
-    setBacklogItems(backlogItems.filter(item => item.projectId !== id));
-    
-    // Update selected project if needed
-    if (selectedProject && selectedProject.id === id) {
-      setSelectedProject(null);
+  const updateProject = async (id: string, data: ProjectFormData) => {
+    try {
+      await updateProjectMutation.mutateAsync({ id, data });
+      
+      if (selectedProject && selectedProject.id === id) {
+        const updatedProject = {
+          ...selectedProject,
+          ...data,
+          updatedAt: new Date()
+        };
+        setSelectedProject(updatedProject);
+      }
+      
+      toast({
+        title: "Project updated",
+        description: `${data.title} has been updated successfully.`,
+      });
+    } catch (error) {
+      console.error(error);
     }
-    
-    toast({
-      title: "Project deleted",
-      description: `${projectToDelete.title} has been deleted successfully.`,
-    });
   };
 
-  // Select a project to view
+  const deleteProject = async (id: string) => {
+    try {
+      const projectToDelete = projects.find(project => project.id === id);
+      if (!projectToDelete) return;
+      
+      await deleteProjectMutation.mutateAsync(id);
+      
+      if (selectedProject && selectedProject.id === id) {
+        setSelectedProject(null);
+      }
+      
+      toast({
+        title: "Project deleted",
+        description: `${projectToDelete.title} has been deleted successfully.`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const selectProject = (id: string) => {
     if (!id) {
       setSelectedProject(null);
@@ -209,8 +712,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  // Create a new sprint for the selected project
-  const createSprint = (data: SprintFormData) => {
+  const createSprint = async (data: SprintFormData) => {
     if (!selectedProject) {
       toast({
         title: "Error",
@@ -220,102 +722,51 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    const newSprint: Sprint = {
-      id: uuidv4(),
-      projectId: selectedProject.id,
-      ...data,
-      isCompleted: false,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    // Check if default columns already exist
-    let todoColumnExists = false;
-    let inProgressColumnExists = false;
-    let doneColumnExists = false;
-    
-    columns.forEach(column => {
-      if (column.title === "TO DO") todoColumnExists = true;
-      if (column.title === "IN PROGRESS") inProgressColumnExists = true;
-      if (column.title === "DONE") doneColumnExists = true;
-    });
-    
-    const newColumns: Column[] = [];
-    
-    if (!todoColumnExists) {
-      newColumns.push({
-        id: uuidv4(),
-        title: "TO DO",
-        tasks: []
+    try {
+      await createSprintMutation.mutateAsync({ 
+        projectId: selectedProject.id, 
+        data 
       });
-    }
-    
-    if (!inProgressColumnExists) {
-      newColumns.push({
-        id: uuidv4(),
-        title: "IN PROGRESS",
-        tasks: []
-      });
-    }
-    
-    if (!doneColumnExists) {
-      newColumns.push({
-        id: uuidv4(),
-        title: "DONE",
-        tasks: []
-      });
-    }
-    
-    setSprints([...sprints, newSprint]);
-    
-    if (newColumns.length > 0) {
-      setColumns([...columns, ...newColumns]);
-    }
-    
-    toast({
-      title: "Sprint created",
-      description: `${data.title} has been created successfully.`,
-    });
-  };
-
-  // Update an existing sprint
-  const updateSprint = (id: string, data: SprintFormData) => {
-    const updatedSprints = sprints.map(sprint => 
-      sprint.id === id 
-        ? { ...sprint, ...data, updatedAt: new Date() } 
-        : sprint
-    );
-    
-    setSprints(updatedSprints);
-    
-    toast({
-      title: "Sprint updated",
-      description: `${data.title} has been updated successfully.`,
-    });
-  };
-
-  // Mark a sprint as completed
-  const completeSprint = (id: string) => {
-    const updatedSprints = sprints.map(sprint => 
-      sprint.id === id 
-        ? { ...sprint, isCompleted: true, updatedAt: new Date() } 
-        : sprint
-    );
-    
-    setSprints(updatedSprints);
-    
-    const sprint = sprints.find(s => s.id === id);
-    if (sprint) {
+      
       toast({
-        title: "Sprint completed",
-        description: `${sprint.title} has been marked as completed.`,
+        title: "Sprint created",
+        description: `${data.title} has been created successfully.`,
       });
+    } catch (error) {
+      console.error(error);
     }
   };
 
-  // Create a new column for a sprint
-  const createColumn = (sprintId: string, title: string) => {
-    // First check if this column title already exists
+  const updateSprint = async (id: string, data: SprintFormData) => {
+    try {
+      await updateSprintMutation.mutateAsync({ id, data });
+      
+      toast({
+        title: "Sprint updated",
+        description: `${data.title} has been updated successfully.`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const completeSprint = async (id: string) => {
+    try {
+      await completeSprintMutation.mutateAsync(id);
+      
+      const sprint = sprints.find(s => s.id === id);
+      if (sprint) {
+        toast({
+          title: "Sprint completed",
+          description: `${sprint.title} has been marked as completed.`,
+        });
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const createColumn = async (sprintId: string, title: string) => {
     const columnExists = columns.some(col => col.title === title);
     
     if (columnExists) {
@@ -327,22 +778,19 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    const newColumn: Column = {
-      id: uuidv4(),
-      title,
-      tasks: []
-    };
-    
-    setColumns([...columns, newColumn]);
-    
-    toast({
-      title: "Column created",
-      description: `${title} column has been created successfully.`,
-    });
+    try {
+      await createColumnMutation.mutateAsync(title);
+      
+      toast({
+        title: "Column created",
+        description: `${title} column has been created successfully.`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  // Delete a column
-  const deleteColumn = (id: string) => {
+  const deleteColumn = async (id: string) => {
     const columnToDelete = columns.find(column => column.id === id);
     if (!columnToDelete) return;
     
@@ -355,7 +803,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    // Don't allow deleting default columns
     if (["TO DO", "IN PROGRESS", "DONE"].includes(columnToDelete.title)) {
       toast({
         title: "Cannot delete default column",
@@ -365,16 +812,19 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    setColumns(columns.filter(column => column.id !== id));
-    
-    toast({
-      title: "Column deleted",
-      description: `${columnToDelete.title} column has been deleted successfully.`,
-    });
+    try {
+      await deleteColumnMutation.mutateAsync(id);
+      
+      toast({
+        title: "Column deleted",
+        description: `${columnToDelete.title} column has been deleted successfully.`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  // Create a new task in a column
-  const createTask = (sprintId: string, columnId: string, data: TaskFormData) => {
+  const createTask = async (sprintId: string, columnId: string, data: TaskFormData) => {
     const column = columns.find(col => col.id === columnId);
     if (!column) {
       toast({
@@ -385,82 +835,61 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    const newTask: Task = {
-      id: uuidv4(),
-      ...data,
-      columnId,
-      sprintId,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    const updatedColumns = columns.map(col => 
-      col.id === columnId 
-        ? { ...col, tasks: [...col.tasks, newTask] } 
-        : col
-    );
-    
-    setColumns(updatedColumns);
-    
-    toast({
-      title: "Task created",
-      description: `${data.title} has been created successfully.`,
-    });
-  };
-
-  // Update an existing task
-  const updateTask = (id: string, data: TaskFormData) => {
-    const updatedColumns = columns.map(column => {
-      const taskIndex = column.tasks.findIndex(task => task.id === id);
-      
-      if (taskIndex !== -1) {
-        const updatedTasks = [...column.tasks];
-        updatedTasks[taskIndex] = { 
-          ...updatedTasks[taskIndex], 
-          ...data, 
-          updatedAt: new Date() 
-        };
-        
-        return { ...column, tasks: updatedTasks };
-      }
-      
-      return column;
-    });
-    
-    setColumns(updatedColumns);
-    
-    toast({
-      title: "Task updated",
-      description: `${data.title} has been updated successfully.`,
-    });
-  };
-
-  // Delete a task
-  const deleteTask = (id: string) => {
-    let taskTitle = "";
-    
-    const updatedColumns = columns.map(column => {
-      const taskToDelete = column.tasks.find(task => task.id === id);
-      if (taskToDelete) taskTitle = taskToDelete.title;
-      
-      return {
-        ...column,
-        tasks: column.tasks.filter(task => task.id !== id)
-      };
-    });
-    
-    setColumns(updatedColumns);
-    
-    if (taskTitle) {
-      toast({
-        title: "Task deleted",
-        description: `${taskTitle} has been deleted successfully.`,
+    try {
+      await createTaskMutation.mutateAsync({
+        sprintId,
+        columnId,
+        data
       });
+      
+      toast({
+        title: "Task created",
+        description: `${data.title} has been created successfully.`,
+      });
+    } catch (error) {
+      console.error(error);
     }
   };
 
-  // Move a task from one column to another
-  const moveTask = (taskId: string, sourceColumnId: string, destinationColumnId: string) => {
+  const updateTask = async (id: string, data: TaskFormData) => {
+    try {
+      await updateTaskMutation.mutateAsync({ id, data });
+      
+      toast({
+        title: "Task updated",
+        description: `${data.title} has been updated successfully.`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const deleteTask = async (id: string) => {
+    let taskTitle = "";
+    
+    for (const column of columns) {
+      const taskToDelete = column.tasks.find(task => task.id === id);
+      if (taskToDelete) {
+        taskTitle = taskToDelete.title;
+        break;
+      }
+    }
+    
+    try {
+      await deleteTaskMutation.mutateAsync(id);
+      
+      if (taskTitle) {
+        toast({
+          title: "Task deleted",
+          description: `${taskTitle} has been deleted successfully.`,
+        });
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const moveTask = async (taskId: string, sourceColumnId: string, destinationColumnId: string) => {
     // Find the source column
     const sourceColumn = columns.find(col => col.id === sourceColumnId);
     if (!sourceColumn) return;
@@ -469,35 +898,17 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const taskIndex = sourceColumn.tasks.findIndex(task => task.id === taskId);
     if (taskIndex === -1) return;
     
-    // Get the task and update its columnId
-    const task = { ...sourceColumn.tasks[taskIndex], columnId: destinationColumnId };
-    
-    // Update columns
-    const updatedColumns = columns.map(col => {
-      // Remove from source column
-      if (col.id === sourceColumnId) {
-        return {
-          ...col,
-          tasks: col.tasks.filter(t => t.id !== taskId)
-        };
-      }
-      
-      // Add to destination column
-      if (col.id === destinationColumnId) {
-        return {
-          ...col,
-          tasks: [...col.tasks, task]
-        };
-      }
-      
-      return col;
-    });
-    
-    setColumns(updatedColumns);
+    try {
+      await moveTaskMutation.mutateAsync({
+        taskId,
+        destinationColumnId
+      });
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  // Create a new backlog item
-  const createBacklogItem = (data: BacklogItemFormData) => {
+  const createBacklogItem = async (data: BacklogItemFormData) => {
     if (!selectedProject) {
       toast({
         title: "Error",
@@ -507,53 +918,51 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    const newBacklogItem: BacklogItem = {
-      id: uuidv4(),
-      projectId: selectedProject.id,
-      ...data,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    setBacklogItems([...backlogItems, newBacklogItem]);
-    
-    toast({
-      title: "Backlog item created",
-      description: `${data.title} has been added to the backlog.`,
-    });
+    try {
+      await createBacklogItemMutation.mutateAsync({
+        projectId: selectedProject.id,
+        data
+      });
+      
+      toast({
+        title: "Backlog item created",
+        description: `${data.title} has been added to the backlog.`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  // Update an existing backlog item
-  const updateBacklogItem = (id: string, data: BacklogItemFormData) => {
-    const updatedBacklogItems = backlogItems.map(item => 
-      item.id === id 
-        ? { ...item, ...data, updatedAt: new Date() } 
-        : item
-    );
-    
-    setBacklogItems(updatedBacklogItems);
-    
-    toast({
-      title: "Backlog item updated",
-      description: `${data.title} has been updated successfully.`,
-    });
+  const updateBacklogItem = async (id: string, data: BacklogItemFormData) => {
+    try {
+      await updateBacklogItemMutation.mutateAsync({ id, data });
+      
+      toast({
+        title: "Backlog item updated",
+        description: `${data.title} has been updated successfully.`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  // Delete a backlog item
-  const deleteBacklogItem = (id: string) => {
+  const deleteBacklogItem = async (id: string) => {
     const itemToDelete = backlogItems.find(item => item.id === id);
     if (!itemToDelete) return;
     
-    setBacklogItems(backlogItems.filter(item => item.id !== id));
-    
-    toast({
-      title: "Backlog item deleted",
-      description: `${itemToDelete.title} has been deleted from the backlog.`,
-    });
+    try {
+      await deleteBacklogItemMutation.mutateAsync(id);
+      
+      toast({
+        title: "Backlog item deleted",
+        description: `${itemToDelete.title} has been deleted from the backlog.`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
   };
 
-  // Move a backlog item to a sprint
-  const moveBacklogItemToSprint = (backlogItemId: string, sprintId: string) => {
+  const moveBacklogItemToSprint = async (backlogItemId: string, sprintId: string) => {
     // Find the backlog item
     const backlogItem = backlogItems.find(item => item.id === backlogItemId);
     if (!backlogItem) return;
@@ -569,37 +978,30 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return;
     }
     
-    // Create a task from the backlog item
-    const newTask: Task = {
-      id: uuidv4(),
-      title: backlogItem.title,
-      description: backlogItem.description,
-      priority: backlogItem.priority,
-      assignee: "",
-      storyPoints: backlogItem.storyPoints,
-      columnId: todoColumn.id,
-      sprintId: sprintId,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    // Add the task to the TO DO column
-    const updatedColumns = columns.map(col => 
-      col.id === todoColumn.id 
-        ? { ...col, tasks: [...col.tasks, newTask] } 
-        : col
-    );
-    
-    // Remove the backlog item
-    const updatedBacklogItems = backlogItems.filter(item => item.id !== backlogItemId);
-    
-    setColumns(updatedColumns);
-    setBacklogItems(updatedBacklogItems);
-    
-    toast({
-      title: "Item moved to sprint",
-      description: `${backlogItem.title} has been moved to the selected sprint.`,
-    });
+    try {
+      // Create a task from the backlog item
+      await createTaskMutation.mutateAsync({
+        sprintId,
+        columnId: todoColumn.id,
+        data: {
+          title: backlogItem.title,
+          description: backlogItem.description,
+          priority: backlogItem.priority,
+          assignee: "",
+          storyPoints: backlogItem.storyPoints
+        }
+      });
+      
+      // Delete the backlog item
+      await deleteBacklogItemMutation.mutateAsync(backlogItemId);
+      
+      toast({
+        title: "Item moved to sprint",
+        description: `${backlogItem.title} has been moved to the selected sprint.`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   return (
@@ -610,6 +1012,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         sprints,
         columns,
         backlogItems,
+        isLoading,
         createProject,
         updateProject,
         deleteProject,

@@ -12,7 +12,14 @@ import SignUp from "./pages/SignUp";
 import { useState, useEffect } from "react";
 import { getSession, supabase } from "./lib/supabase";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      refetchOnWindowFocus: true,
+    },
+  },
+});
 
 const App = () => {
   const [session, setSession] = useState<any>(null);
