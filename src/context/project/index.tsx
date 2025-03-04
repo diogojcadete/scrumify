@@ -1,4 +1,4 @@
 
-import { ProjectProvider, useProject } from './ProjectContext';
+import { ProjectProvider, useProject } from './ProjectContextProvider';
 
 export { ProjectProvider, useProject };

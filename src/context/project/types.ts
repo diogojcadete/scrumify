@@ -29,7 +29,18 @@ export interface ProjectContextType {
   inviteCollaborator: (projectId: string, projectTitle: string, data: CollaboratorFormData) => Promise<{success: boolean, error: string | null}>;
   removeCollaborator: (id: string) => void;
   getProjectCollaborators: (projectId: string) => Collaborator[];
-  acceptInvitation: (collaboratorId: string) => Promise<{success: boolean, error: string | null}>;
+  acceptInvitation: (collaboratorId: string) => Promise<{success: boolean, error: string | null, projectsData?: Project[]}>;
   rejectInvitation: (collaboratorId: string) => Promise<{success: boolean, error: string | null}>;
   getInvitations: (email?: string) => Promise<{data: any, success: boolean, error: string | null}>;
+}
+
+export interface ProjectState {
+  projects: Project[];
+  selectedProject: Project | null;
+  sprints: Sprint[];
+  columns: Column[];
+  backlogItems: BacklogItem[];
+  collaborators: Collaborator[];
+  user: any | null;
+  loading: boolean;
 }
