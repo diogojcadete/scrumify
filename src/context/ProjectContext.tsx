@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
@@ -29,7 +28,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [user, setUser] = useState<any>(null);
 
-  // Set up auth listener
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
@@ -52,7 +50,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, []);
 
-  // Queries
   const {
     data: projects = [],
     isLoading: isProjectsLoading
@@ -107,7 +104,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     enabled: !!user && !!selectedProject
   });
 
-  // Combine tasks with columns
   const columns = combineTasksWithColumns(columnsData, tasks);
 
   const isLoading = 
@@ -118,7 +114,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     isBacklogItemsLoading || 
     isCollaboratorsLoading;
 
-  // Get all mutations
   const {
     createProjectMutation,
     updateProjectMutation,
@@ -137,7 +132,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     deleteBacklogItemMutation,
     addCollaboratorMutation,
     updateCollaboratorMutation,
-    removeCollaboratorMutation
+    removeCollaboratorMutation,
+    acceptCollaboratorInviteMutation,
+    declineCollaboratorInviteMutation
   } = useProjectMutations(user);
 
   useEffect(() => {
@@ -157,7 +154,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     createDefaultColumns();
   }, [user, isLoading, columns, createColumnMutation]);
 
-  // Method implementations
   const createProject = async (data: ProjectFormData) => {
     try {
       const newProject = await createProjectMutation.mutateAsync(data);
@@ -476,6 +472,24 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const acceptCollaboratorInvite = async (id: string) => {
+    try {
+      await acceptCollaboratorInviteMutation.mutateAsync(id);
+      showToast("Invitation accepted", "You now have access to this project.");
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const declineCollaboratorInvite = async (id: string) => {
+    try {
+      await declineCollaboratorInviteMutation.mutateAsync(id);
+      showToast("Invitation declined", "The invitation has been declined.");
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const isOwner = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
     return project?.ownerId === user?.id;
@@ -511,7 +525,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         addCollaborator,
         updateCollaborator,
         removeCollaborator,
-        isOwner
+        isOwner,
+        acceptCollaboratorInvite,
+        declineCollaboratorInvite
       }}
     >
       {children}

@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThumbsUp, ThumbsDown } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ProjectInvite {
   id: string;
@@ -25,6 +26,7 @@ const CollaborationInvites = () => {
   const [invites, setInvites] = useState<ProjectInvite[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { projects } = useProject();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const fetchInvites = async () => {
@@ -105,6 +107,9 @@ const CollaborationInvites = () => {
         if (error) {
           throw error;
         }
+
+        // Invalidate the projects query to refresh the projects list
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
       } else {
         // Decline by deleting the invitation completely
         const { error } = await supabase

@@ -41,5 +41,7 @@ export interface ProjectContextType {
   addCollaborator: (data: CollaboratorFormData) => Promise<void>;
   removeCollaborator: (id: string) => Promise<void>;
   updateCollaborator: (id: string, data: CollaboratorFormData) => Promise<void>;
+  acceptCollaboratorInvite: (id: string) => Promise<void>;
+  declineCollaboratorInvite: (id: string) => Promise<void>;
   isOwner: (projectId: string) => boolean;
 }
