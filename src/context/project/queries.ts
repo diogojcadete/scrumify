@@ -22,7 +22,7 @@ export const fetchProjects = async (user: any) => {
     return [];
   }
   
-  // Fetch projects where the user is a collaborator
+  // Fetch projects where the user is a collaborator with 'accepted' status
   const { data: collaborations, error: collabError } = await supabase
     .from('collaborators')
     .select('project_id, status')

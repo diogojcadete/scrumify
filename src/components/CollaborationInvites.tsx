@@ -7,7 +7,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -93,18 +92,32 @@ const CollaborationInvites = () => {
 
   const respondToInvite = async (inviteId: string, accept: boolean) => {
     try {
-      const { error } = await supabase
-        .from('collaborators')
-        .update({ 
-          status: accept ? 'accepted' : 'rejected',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', inviteId);
+      if (accept) {
+        // Accept the invitation by updating status to 'accepted'
+        const { error } = await supabase
+          .from('collaborators')
+          .update({ 
+            status: 'accepted',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', inviteId);
 
-      if (error) {
-        throw error;
+        if (error) {
+          throw error;
+        }
+      } else {
+        // Decline by deleting the invitation completely
+        const { error } = await supabase
+          .from('collaborators')
+          .delete()
+          .eq('id', inviteId);
+
+        if (error) {
+          throw error;
+        }
       }
 
+      // Remove the invitation from the local state
       setInvites(invites.filter(invite => invite.id !== inviteId));
       
       toast({

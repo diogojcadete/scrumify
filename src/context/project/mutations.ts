@@ -239,3 +239,24 @@ export const removeCollaborator = async (id: string) => {
   
   if (error) throw error;
 };
+
+export const acceptCollaboratorInvite = async (id: string) => {
+  const { error } = await supabase
+    .from('collaborators')
+    .update({
+      status: 'accepted',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', id);
+  
+  if (error) throw error;
+};
+
+export const declineCollaboratorInvite = async (id: string) => {
+  const { error } = await supabase
+    .from('collaborators')
+    .delete()
+    .eq('id', id);
+  
+  if (error) throw error;
+};

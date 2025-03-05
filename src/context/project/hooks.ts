@@ -1,4 +1,3 @@
-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/use-toast";
 import * as mutations from "./mutations";
@@ -309,6 +308,38 @@ export const useProjectMutations = (user: any) => {
     }
   });
 
+  const acceptCollaboratorInviteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await mutations.acceptCollaboratorInvite(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error accepting invitation",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const declineCollaboratorInviteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await mutations.declineCollaboratorInvite(id);
+    },
+    onSuccess: () => {
+      // No need to refresh projects since we're just removing an invitation
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error declining invitation",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   return {
     createProjectMutation,
     updateProjectMutation,
@@ -327,6 +358,8 @@ export const useProjectMutations = (user: any) => {
     deleteBacklogItemMutation,
     addCollaboratorMutation,
     updateCollaboratorMutation,
-    removeCollaboratorMutation
+    removeCollaboratorMutation,
+    acceptCollaboratorInviteMutation,
+    declineCollaboratorInviteMutation
   };
 };
