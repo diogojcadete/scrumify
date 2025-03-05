@@ -57,7 +57,7 @@ export const canDeleteColumn = (
 };
 
 // Toast helper for consistent styling
-export const showToast = (title: string, description: string, type: "default" | "destructive" | "outline" | "secondary" = "default") => {
+export const showToast = (title: string, description: string, type: "default" | "destructive" = "default") => {
   toast({
     title,
     description,

@@ -62,7 +62,7 @@ const CollaboratorList = () => {
       case "pending":
         return <Badge variant="outline">Pending</Badge>;
       case "accepted":
-        return <Badge variant="success">Accepted</Badge>;
+        return <Badge variant="default" className="bg-green-500 hover:bg-green-600">Accepted</Badge>;
       case "rejected":
         return <Badge variant="destructive">Rejected</Badge>;
       default:
