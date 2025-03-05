@@ -1,7 +1,5 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { Project, Sprint, Column, Task, BacklogItem, ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData } from "@/types";
+import { Project, Sprint, Column, Task, BacklogItem, ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData, Collaborator, CollaboratorFormData } from "@/types";
 import { toast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,6 +10,7 @@ interface ProjectContextType {
   sprints: Sprint[];
   columns: Column[];
   backlogItems: BacklogItem[];
+  collaborators: Collaborator[];
   isLoading: boolean;
   createProject: (data: ProjectFormData) => Promise<void>;
   updateProject: (id: string, data: ProjectFormData) => Promise<void>;
@@ -30,6 +29,10 @@ interface ProjectContextType {
   updateBacklogItem: (id: string, data: BacklogItemFormData) => Promise<void>;
   deleteBacklogItem: (id: string) => Promise<void>;
   moveBacklogItemToSprint: (backlogItemId: string, sprintId: string) => Promise<void>;
+  addCollaborator: (data: CollaboratorFormData) => Promise<void>;
+  removeCollaborator: (id: string) => Promise<void>;
+  updateCollaborator: (id: string, data: CollaboratorFormData) => Promise<void>;
+  isOwner: (projectId: string) => boolean;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
@@ -66,25 +69,93 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchProjects = async () => {
     if (!user) return [];
     
-    const { data, error } = await supabase
+    // Fetch projects owned by the user
+    const { data: ownedProjects, error: ownedError } = await supabase
       .from('projects')
       .select('*')
+      .eq('owner_id', user.id)
       .order('created_at', { ascending: false });
     
-    if (error) {
+    if (ownedError) {
       toast({
-        title: "Error fetching projects",
-        description: error.message,
+        title: "Error fetching owned projects",
+        description: ownedError.message,
         variant: "destructive"
       });
       return [];
     }
     
-    return data.map(project => ({
-      ...project,
-      createdAt: new Date(project.created_at),
-      updatedAt: new Date(project.updated_at)
-    }));
+    // Fetch projects where the user is a collaborator
+    const { data: collaborations, error: collabError } = await supabase
+      .from('collaborators')
+      .select('project_id, status')
+      .eq('email', user.email)
+      .eq('status', 'accepted');
+    
+    if (collabError) {
+      toast({
+        title: "Error fetching collaborations",
+        description: collabError.message,
+        variant: "destructive"
+      });
+      return ownedProjects.map(project => ({
+        ...project,
+        ownerId: project.owner_id,
+        createdAt: new Date(project.created_at),
+        updatedAt: new Date(project.updated_at)
+      }));
+    }
+    
+    if (collaborations.length === 0) {
+      return ownedProjects.map(project => ({
+        ...project,
+        ownerId: project.owner_id,
+        createdAt: new Date(project.created_at),
+        updatedAt: new Date(project.updated_at)
+      }));
+    }
+    
+    const projectIds = collaborations.map(collab => collab.project_id);
+    
+    const { data: collabProjects, error: projectsError } = await supabase
+      .from('projects')
+      .select('*')
+      .in('id', projectIds);
+    
+    if (projectsError) {
+      toast({
+        title: "Error fetching collaborative projects",
+        description: projectsError.message,
+        variant: "destructive"
+      });
+      return ownedProjects.map(project => ({
+        ...project,
+        ownerId: project.owner_id,
+        createdAt: new Date(project.created_at),
+        updatedAt: new Date(project.updated_at)
+      }));
+    }
+    
+    // Combine owned and collaborative projects
+    const allProjects = [
+      ...ownedProjects.map(project => ({
+        ...project,
+        ownerId: project.owner_id,
+        createdAt: new Date(project.created_at),
+        updatedAt: new Date(project.updated_at)
+      })),
+      ...collabProjects.map(project => ({
+        ...project,
+        ownerId: project.owner_id,
+        createdAt: new Date(project.created_at),
+        updatedAt: new Date(project.updated_at)
+      }))
+    ];
+    
+    // Remove duplicates (in case user is both owner and collaborator)
+    return allProjects.filter((project, index, self) => 
+      index === self.findIndex((p) => p.id === project.id)
+    );
   };
 
   const fetchSprints = async () => {
@@ -193,6 +264,32 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }));
   };
 
+  const fetchCollaborators = async () => {
+    if (!user || !selectedProject) return [];
+    
+    const { data, error } = await supabase
+      .from('collaborators')
+      .select('*')
+      .eq('project_id', selectedProject.id)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      toast({
+        title: "Error fetching collaborators",
+        description: error.message,
+        variant: "destructive"
+      });
+      return [];
+    }
+    
+    return data.map(collaborator => ({
+      ...collaborator,
+      projectId: collaborator.project_id,
+      createdAt: new Date(collaborator.created_at),
+      updatedAt: new Date(collaborator.updated_at)
+    }));
+  };
+
   // Queries
   const {
     data: projects = [],
@@ -239,13 +336,28 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     enabled: !!user
   });
 
+  const {
+    data: collaborators = [],
+    isLoading: isCollaboratorsLoading
+  } = useQuery({
+    queryKey: ['collaborators', selectedProject?.id],
+    queryFn: fetchCollaborators,
+    enabled: !!user && !!selectedProject
+  });
+
   // Combine tasks with columns
   const columns = columnsData.map(column => ({
     ...column,
     tasks: tasks.filter(task => task.columnId === column.id)
   }));
 
-  const isLoading = isProjectsLoading || isSprintsLoading || isColumnsLoading || isTasksLoading || isBacklogItemsLoading;
+  const isLoading = 
+    isProjectsLoading || 
+    isSprintsLoading || 
+    isColumnsLoading || 
+    isTasksLoading || 
+    isBacklogItemsLoading || 
+    isCollaboratorsLoading;
 
   // Mutations
   const createProjectMutation = useMutation({
@@ -626,7 +738,77 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   });
 
-  // Function to create default columns if they don't exist
+  const addCollaboratorMutation = useMutation({
+    mutationFn: async ({ projectId, data }: { projectId: string, data: CollaboratorFormData }) => {
+      const { error } = await supabase
+        .from('collaborators')
+        .insert({
+          project_id: projectId,
+          email: data.email,
+          role: data.role,
+          status: 'pending'
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['collaborators', selectedProject?.id] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error adding collaborator",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updateCollaboratorMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string, data: CollaboratorFormData }) => {
+      const { error } = await supabase
+        .from('collaborators')
+        .update({
+          email: data.email,
+          role: data.role,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['collaborators', selectedProject?.id] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating collaborator",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const removeCollaboratorMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('collaborators')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['collaborators', selectedProject?.id] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error removing collaborator",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   useEffect(() => {
     const createDefaultColumns = async () => {
       if (!user || isLoading) return;
@@ -644,7 +826,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     createDefaultColumns();
   }, [user, isLoading, columns]);
 
-  // Context functions
   const createProject = async (data: ProjectFormData) => {
     try {
       const newProject = await createProjectMutation.mutateAsync(data);
@@ -890,11 +1071,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const moveTask = async (taskId: string, sourceColumnId: string, destinationColumnId: string) => {
-    // Find the source column
     const sourceColumn = columns.find(col => col.id === sourceColumnId);
     if (!sourceColumn) return;
     
-    // Find the task
     const taskIndex = sourceColumn.tasks.findIndex(task => task.id === taskId);
     if (taskIndex === -1) return;
     
@@ -963,11 +1142,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const moveBacklogItemToSprint = async (backlogItemId: string, sprintId: string) => {
-    // Find the backlog item
     const backlogItem = backlogItems.find(item => item.id === backlogItemId);
     if (!backlogItem) return;
     
-    // Find the TO DO column
     const todoColumn = columns.find(col => col.title === "TO DO");
     if (!todoColumn) {
       toast({
@@ -979,7 +1156,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     
     try {
-      // Create a task from the backlog item
       await createTaskMutation.mutateAsync({
         sprintId,
         columnId: todoColumn.id,
@@ -992,7 +1168,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       });
       
-      // Delete the backlog item
       await deleteBacklogItemMutation.mutateAsync(backlogItemId);
       
       toast({
@@ -1004,6 +1179,65 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const addCollaborator = async (data: CollaboratorFormData) => {
+    if (!selectedProject) {
+      toast({
+        title: "Error",
+        description: "No project selected.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      await addCollaboratorMutation.mutateAsync({ 
+        projectId: selectedProject.id, 
+        data 
+      });
+      
+      toast({
+        title: "Collaborator invited",
+        description: `Invitation sent to ${data.email}.`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const updateCollaborator = async (id: string, data: CollaboratorFormData) => {
+    try {
+      await updateCollaboratorMutation.mutateAsync({ id, data });
+      
+      toast({
+        title: "Collaborator updated",
+        description: `Collaborator details updated successfully.`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const removeCollaborator = async (id: string) => {
+    const collaboratorToRemove = collaborators.find(collab => collab.id === id);
+    if (!collaboratorToRemove) return;
+    
+    try {
+      await removeCollaboratorMutation.mutateAsync(id);
+      
+      toast({
+        title: "Collaborator removed",
+        description: `${collaboratorToRemove.email} has been removed from the project.`,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const isOwner = (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    return project?.ownerId === user?.id;
+  };
+
   return (
     <ProjectContext.Provider
       value={{
@@ -1012,6 +1246,7 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         sprints,
         columns,
         backlogItems,
+        collaborators,
         isLoading,
         createProject,
         updateProject,
@@ -1029,7 +1264,11 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         createBacklogItem,
         updateBacklogItem,
         deleteBacklogItem,
-        moveBacklogItemToSprint
+        moveBacklogItemToSprint,
+        addCollaborator,
+        updateCollaborator,
+        removeCollaborator,
+        isOwner
       }}
     >
       {children}
