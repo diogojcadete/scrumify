@@ -1,14 +1,20 @@
-
-import { Project, Sprint, Column, Task, BacklogItem } from "@/types";
+import { Project, Sprint, Column, Task, BacklogItem, Collaborator } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/components/ui/use-toast";
 
 export const fetchProjects = async (user: any) => {
   if (!user) return [];
   
+  // Fetch projects where the user is the owner or a collaborator
   const { data, error } = await supabase
     .from('projects')
     .select('*')
+    .or(`owner_id.eq.${user.id},id.in.(${
+      supabase.from('collaborators')
+      .select('project_id')
+      .eq('email', user.email)
+      .in('status', ['pending', 'accepted'])
+    })`)
     .order('created_at', { ascending: false });
   
   if (error) {
@@ -130,5 +136,57 @@ export const fetchBacklogItems = async (user: any) => {
     storyPoints: item.story_points,
     createdAt: new Date(item.created_at),
     updatedAt: new Date(item.updated_at)
+  }));
+};
+
+export const fetchCollaborators = async (projectId: string) => {
+  const { data, error } = await supabase
+    .from('collaborators')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    toast({
+      title: "Error fetching collaborators",
+      description: error.message,
+      variant: "destructive"
+    });
+    return [];
+  }
+  
+  return data.map(collaborator => ({
+    ...collaborator,
+    projectId: collaborator.project_id,
+    createdAt: new Date(collaborator.created_at),
+    updatedAt: new Date(collaborator.updated_at)
+  }));
+};
+
+export const fetchInvitations = async (user: any) => {
+  if (!user) return [];
+  
+  const { data, error } = await supabase
+    .from('collaborators')
+    .select('*, projects:project_id(*)')
+    .eq('email', user.email)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+  
+  if (error) {
+    toast({
+      title: "Error fetching invitations",
+      description: error.message,
+      variant: "destructive"
+    });
+    return [];
+  }
+  
+  return data.map(invitation => ({
+    ...invitation,
+    projectId: invitation.project_id,
+    projectTitle: invitation.projects?.title || 'Unknown Project',
+    createdAt: new Date(invitation.created_at),
+    updatedAt: new Date(invitation.updated_at)
   }));
 };

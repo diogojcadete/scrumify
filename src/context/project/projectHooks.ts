@@ -1,4 +1,3 @@
-
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/components/ui/use-toast";
 import { 
@@ -16,7 +15,10 @@ import {
   moveTask,
   createBacklogItem,
   updateBacklogItem,
-  deleteBacklogItem
+  deleteBacklogItem,
+  inviteCollaborator,
+  removeCollaborator,
+  updateCollaboratorStatus
 } from "./mutations";
 
 export const useProjectMutations = (user: any) => {
@@ -238,6 +240,52 @@ export const useProjectMutations = (user: any) => {
     }
   });
 
+  const inviteCollaboratorMutation = useMutation({
+    mutationFn: async ({ projectId, data }: { projectId: string, data: any }) => 
+      inviteCollaborator(projectId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['collaborators'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error inviting collaborator",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const removeCollaboratorMutation = useMutation({
+    mutationFn: async (id: string) => removeCollaborator(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['collaborators'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error removing collaborator",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
+  const updateCollaboratorStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string, status: 'accepted' | 'rejected' }) =>
+      updateCollaboratorStatus(id, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['collaborators'] });
+      queryClient.invalidateQueries({ queryKey: ['invitations'] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating invitation status",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   return {
     createProjectMutation,
     updateProjectMutation,
@@ -253,6 +301,9 @@ export const useProjectMutations = (user: any) => {
     moveTaskMutation,
     createBacklogItemMutation,
     updateBacklogItemMutation,
-    deleteBacklogItemMutation
+    deleteBacklogItemMutation,
+    inviteCollaboratorMutation,
+    removeCollaboratorMutation,
+    updateCollaboratorStatusMutation
   };
 };
