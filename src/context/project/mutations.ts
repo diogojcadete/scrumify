@@ -1,29 +1,9 @@
-
 import { ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData } from "@/types";
 import { supabase } from "@/lib/supabase";
 
 // Project mutations
 export const createProject = async (user: any, data: ProjectFormData) => {
   if (!user) throw new Error("You must be signed in to create a project");
-  
-  // First, ensure the user exists in the users table
-  const { data: userData, error: userError } = await supabase
-    .from('users')
-    .select('id')
-    .eq('id', user.id)
-    .single();
-  
-  if (userError) {
-    // If the user doesn't exist in the users table, create them
-    const { error: insertError } = await supabase
-      .from('users')
-      .insert({
-        id: user.id,
-        email: user.email
-      });
-    
-    if (insertError) throw insertError;
-  }
   
   const { data: newProject, error } = await supabase
     .from('projects')
