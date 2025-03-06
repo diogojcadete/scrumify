@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useProject } from "@/context/project";
+import { useProject } from "@/context/ProjectContext";
 import { X } from "lucide-react";
 
 const formSchema = z.object({

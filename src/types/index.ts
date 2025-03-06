@@ -4,7 +4,6 @@ export interface Project {
   title: string;
   description: string;
   endGoal: string;
-  ownerId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -25,6 +24,8 @@ export interface Column {
   id: string;
   title: string;
   tasks: Task[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Task {
@@ -47,16 +48,6 @@ export interface BacklogItem {
   description: string;
   priority: "low" | "medium" | "high";
   storyPoints: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface Collaborator {
-  id: string;
-  projectId: string;
-  email: string;
-  role: "viewer" | "editor" | "admin";
-  status: "pending" | "accepted" | "rejected";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -88,9 +79,4 @@ export interface BacklogItemFormData {
   description: string;
   priority: "low" | "medium" | "high";
   storyPoints: number;
-}
-
-export interface CollaboratorFormData {
-  email: string;
-  role: "viewer" | "editor" | "admin";
 }
