@@ -6,6 +6,22 @@ export interface Project {
   endGoal: string;
   createdAt: Date;
   updatedAt: Date;
+  ownerId?: string;
+}
+
+export interface Collaborator {
+  id: string;
+  projectId: string;
+  email: string;
+  role: "editor" | "viewer";
+  status: "pending" | "accepted" | "rejected";
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CollaboratorFormData {
+  email: string;
+  role: "editor" | "viewer";
 }
 
 export interface Sprint {
