@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { PlusIcon, ExternalLinkIcon, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { supabase, signOut } from "@/lib/supabase";
+import { supabase, signOut, getUserData } from "@/lib/supabase";
 import { toast } from "@/components/ui/use-toast";
 
 const Index = () => {
@@ -26,8 +26,8 @@ const Index = () => {
 
   useEffect(() => {
     const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data.user);
+      const userData = await getUserData();
+      setUser(userData);
     };
     
     getUser();

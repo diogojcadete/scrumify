@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://btutiksghrrxrxqxwlnk.supabase.co';
@@ -35,4 +34,22 @@ export async function signOut() {
 export async function getSession() {
   const { data, error } = await supabase.auth.getSession();
   return { session: data.session, error };
+}
+
+export async function getUserData() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching user data:', error);
+    return null;
+  }
+
+  return data;
 }
