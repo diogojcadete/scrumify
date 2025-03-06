@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProject } from "@/context/ProjectContext";
+import { useProject } from "@/context/project";
 import Project from "@/components/Project";
 import ProjectForm from "@/components/ProjectForm";
 import { Button } from "@/components/ui/button";
@@ -13,15 +13,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { PlusIcon, ExternalLinkIcon, LogOut } from "lucide-react";
+import { PlusIcon, ExternalLinkIcon, LogOut, Bell } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase, signOut } from "@/lib/supabase";
 import { toast } from "@/components/ui/use-toast";
 
 const Index = () => {
-  const { projects, selectedProject, selectProject } = useProject();
+  const { projects, selectedProject, selectProject, getInvitations } = useProject();
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [invitationCount, setInvitationCount] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,6 +33,19 @@ const Index = () => {
     
     getUser();
   }, []);
+
+  useEffect(() => {
+    const fetchInvitationCount = async () => {
+      if (user) {
+        const result = await getInvitations();
+        if (result.success && result.data) {
+          setInvitationCount(result.data.length);
+        }
+      }
+    };
+
+    fetchInvitationCount();
+  }, [user]);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -71,6 +85,20 @@ const Index = () => {
               </p>
             </div>
             <div className="flex items-center gap-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate("/dashboard")}
+                className="flex items-center gap-1"
+              >
+                <Bell className="h-4 w-4" />
+                <span>Dashboard</span>
+                {invitationCount > 0 && (
+                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center rounded-full">
+                    {invitationCount}
+                  </Badge>
+                )}
+              </Button>
               <div className="flex items-center gap-2">
                 <span className="text-sm">{user?.email}</span>
                 <Button variant="outline" size="sm" onClick={handleSignOut}>

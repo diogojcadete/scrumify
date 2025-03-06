@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CalendarIcon, X } from "lucide-react";
-import { useProject } from "@/context/ProjectContext";
+import { useProject } from "@/context/project";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
