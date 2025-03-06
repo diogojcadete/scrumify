@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { useProject } from "@/context/ProjectContext";
+import { useProject } from "@/context/project";
 import { BacklogItem, Sprint } from "@/types";
 import { Button } from "@/components/ui/button";
 import {

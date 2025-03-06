@@ -2,7 +2,7 @@
 import React from "react";
 import { Task } from "@/types";
 import { PencilIcon, TrashIcon, User } from "lucide-react";
-import { useProject } from "@/context/ProjectContext";
+import { useProject } from "@/context/project";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
