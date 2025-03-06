@@ -1,3 +1,4 @@
+
 export interface Project {
   id: string;
   title: string;
@@ -78,11 +79,4 @@ export interface BacklogItemFormData {
   description: string;
   priority: "low" | "medium" | "high";
   storyPoints: number;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  created_at: Date;
-  updated_at: Date;
 }
