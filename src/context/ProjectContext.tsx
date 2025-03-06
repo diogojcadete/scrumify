@@ -252,10 +252,29 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     mutationFn: async (data: ProjectFormData) => {
       if (!user) throw new Error("You must be signed in to create a project");
       
+      // First, ensure the user exists in the users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+      
+      if (userError) {
+        // If the user doesn't exist in the users table, create them
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: user.id,
+            email: user.email
+          });
+        
+        if (insertError) throw insertError;
+      }
+      
       const { data: newProject, error } = await supabase
         .from('projects')
         .insert({
-          owner_id: user.id,
+          owner_id: user.id,  // This now correctly references users.id
           title: data.title,
           description: data.description,
           end_goal: data.endGoal
