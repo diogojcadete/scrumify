@@ -4,10 +4,8 @@ import { useProject } from "@/context/ProjectContext";
 import SprintBoard from "./SprintBoard";
 import SprintForm from "./SprintForm";
 import Backlog from "./Backlog";
-import CollaboratorList from "./CollaboratorList";
 import { Project as ProjectType, Sprint } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -30,7 +28,6 @@ import {
   ListIcon,
   CalendarIcon,
   ListChecksIcon,
-  UsersIcon,
 } from "lucide-react";
 import ProjectForm from "./ProjectForm";
 

@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { useProject } from "@/context/ProjectContext";
 import Project from "@/components/Project";
 import ProjectForm from "@/components/ProjectForm";
-import CollaborationInvites from "@/components/CollaborationInvites";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -84,8 +83,6 @@ const Index = () => {
             </div>
           </div>
 
-          <CollaborationInvites />
-
           {projects.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 bg-accent/30 rounded-lg border border-border animate-fade-in">
               <div className="text-center max-w-md">
@@ -105,14 +102,9 @@ const Index = () => {
                   <CardHeader className="pb-2">
                     <div className="flex justify-between">
                       <CardTitle className="text-xl">{project.title}</CardTitle>
-                      <div className="flex items-center gap-2">
-                        {project.ownerId !== user?.id && (
-                          <Badge variant="outline">Shared</Badge>
-                        )}
-                        <Badge variant="outline">
-                          {new Date(project.createdAt).toLocaleDateString()}
-                        </Badge>
-                      </div>
+                      <Badge variant="outline">
+                        {new Date(project.createdAt).toLocaleDateString()}
+                      </Badge>
                     </div>
                     <CardDescription className="line-clamp-2">
                       {project.description}
