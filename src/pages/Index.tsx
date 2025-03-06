@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useProject } from "@/context/ProjectContext";
-import ProjectWrapper from "@/components/ProjectWrapper";
+import Project from "@/components/Project";
 import ProjectForm from "@/components/ProjectForm";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +17,6 @@ import { PlusIcon, ExternalLinkIcon, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabase, signOut, getUserData } from "@/lib/supabase";
 import { toast } from "@/components/ui/use-toast";
-import Invitations from "@/components/Invitations";
 
 const Index = () => {
   const { projects, selectedProject, selectProject } = useProject();
@@ -59,7 +58,7 @@ const Index = () => {
             >
               ← Back to Projects
             </Button>
-            <ProjectWrapper />
+            <Project project={selectedProject} />
           </div>
         </div>
       ) : (
@@ -83,8 +82,6 @@ const Index = () => {
               </Button>
             </div>
           </div>
-
-          <Invitations />
 
           {projects.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 bg-accent/30 rounded-lg border border-border animate-fade-in">

@@ -1,4 +1,3 @@
-
 export interface Project {
   id: string;
   title: string;
@@ -86,19 +85,4 @@ export interface User {
   email: string;
   created_at: Date;
   updated_at: Date;
-}
-
-export interface Collaborator {
-  id: string;
-  projectId: string; 
-  email: string;
-  role: string;
-  status: 'pending' | 'accepted' | 'rejected';
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface CollaboratorFormData {
-  email: string;
-  role: string;
 }

@@ -1,4 +1,4 @@
-import { ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData, CollaboratorFormData } from "@/types";
+import { ProjectFormData, SprintFormData, TaskFormData, BacklogItemFormData } from "@/types";
 import { supabase } from "@/lib/supabase";
 
 // Project mutations
@@ -197,57 +197,6 @@ export const deleteBacklogItem = async (id: string) => {
   const { error } = await supabase
     .from('backlog_items')
     .delete()
-    .eq('id', id);
-  
-  if (error) throw error;
-};
-
-// Collaborator mutations
-export const inviteCollaborator = async (projectId: string, data: CollaboratorFormData) => {
-  // First check if the email already exists as a collaborator
-  const { data: existingCollaborator, error: checkError } = await supabase
-    .from('collaborators')
-    .select('*')
-    .eq('project_id', projectId)
-    .eq('email', data.email)
-    .single();
-  
-  if (existingCollaborator) {
-    throw new Error("This user is already a collaborator on this project");
-  }
-  
-  if (checkError && checkError.code !== 'PGRST116') { // PGRST116 means no rows returned, which is expected
-    throw checkError;
-  }
-  
-  const { error } = await supabase
-    .from('collaborators')
-    .insert({
-      project_id: projectId,
-      email: data.email,
-      role: data.role,
-      status: 'pending'
-    });
-  
-  if (error) throw error;
-};
-
-export const removeCollaborator = async (id: string) => {
-  const { error } = await supabase
-    .from('collaborators')
-    .delete()
-    .eq('id', id);
-  
-  if (error) throw error;
-};
-
-export const updateCollaboratorStatus = async (id: string, status: 'accepted' | 'rejected') => {
-  const { error } = await supabase
-    .from('collaborators')
-    .update({
-      status: status,
-      updated_at: new Date().toISOString()
-    })
     .eq('id', id);
   
   if (error) throw error;
